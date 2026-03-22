@@ -66,7 +66,7 @@ export function PrinterCard({ printer, spools, onSpoolAssign, onSpoolUnassign }:
                   tray={tray}
                   assignedSpool={tray.assigned_spool}
                   spools={spools}
-                  onAssign={(spoolId) => onSpoolAssign(tray.entity_id, spoolId)}
+                  onAssign={(spoolId) => onSpoolAssign(tray.unique_id || tray.entity_id, spoolId)}
                   onUnassign={onSpoolUnassign}
                   mismatch={tray.mismatch}
                 />
@@ -89,7 +89,7 @@ export function PrinterCard({ printer, spools, onSpoolAssign, onSpoolUnassign }:
                   assignedSpool={extSpool.assigned_spool}
                   spools={spools}
                   onAssign={(spoolId) => {
-                    onSpoolAssign(extSpool.entity_id, spoolId);
+                    onSpoolAssign(extSpool.unique_id || extSpool.entity_id, spoolId);
                   }}
                   onUnassign={onSpoolUnassign}
                 />

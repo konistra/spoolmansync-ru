@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/db';
 import { SpoolmanClient } from '@/lib/api/spoolman';
+import { HomeAssistantClient } from '@/lib/api/homeassistant';
 import { createActivityLog } from '@/lib/activity-log';
 
 export async function GET() {
@@ -36,6 +37,20 @@ export async function POST(request: NextRequest) {
     }
 
     const client = new SpoolmanClient(spoolmanConnection.url);
+
+    // Wire up entity_id → unique_id resolver for defense-in-depth
+    let entityIdMap: Map<string, string> | null = null;
+    client.setEntityIdResolver(async (entityId: string) => {
+      if (!entityIdMap) {
+        try {
+          const haClient = await HomeAssistantClient.fromConnection();
+          if (haClient) entityIdMap = await haClient.getEntityIdToUniqueIdMap();
+        } catch { /* best-effort */ }
+        if (!entityIdMap) entityIdMap = new Map();
+      }
+      return entityIdMap.get(entityId) || entityId;
+    });
+
     const updatedSpool = await client.assignSpoolToTray(spoolId, trayId);
 
     // Log activity
@@ -64,6 +79,20 @@ export async function DELETE(request: NextRequest) {
     }
 
     const client = new SpoolmanClient(spoolmanConnection.url);
+
+    // Wire up entity_id → unique_id resolver for defense-in-depth
+    let deleteEntityIdMap: Map<string, string> | null = null;
+    client.setEntityIdResolver(async (entityId: string) => {
+      if (!deleteEntityIdMap) {
+        try {
+          const haClient = await HomeAssistantClient.fromConnection();
+          if (haClient) deleteEntityIdMap = await haClient.getEntityIdToUniqueIdMap();
+        } catch { /* best-effort */ }
+        if (!deleteEntityIdMap) deleteEntityIdMap = new Map();
+      }
+      return deleteEntityIdMap.get(entityId) || entityId;
+    });
+
     const updatedSpool = await client.unassignSpoolFromTray(spoolId);
 
     // Log activity

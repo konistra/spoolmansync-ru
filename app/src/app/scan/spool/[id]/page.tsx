@@ -95,7 +95,7 @@ export default function SpoolAssignPage({
           for (const ams of printer.ams_units || []) {
             for (const tray of ams.trays || []) {
               trayOptions.push({
-                id: tray.entity_id,
+                id: tray.unique_id || tray.entity_id,
                 label: `Tray ${tray.tray_number}`,
                 printer: printer.name,
                 amsName: ams.name,
@@ -105,7 +105,7 @@ export default function SpoolAssignPage({
           const extSpools = printer.external_spools || [];
           for (let i = 0; i < extSpools.length; i++) {
             trayOptions.push({
-              id: extSpools[i].entity_id,
+              id: extSpools[i].unique_id || extSpools[i].entity_id,
               label: extSpools.length > 1 ? `External Spool ${i + 1}` : 'External Spool',
               printer: printer.name,
             });

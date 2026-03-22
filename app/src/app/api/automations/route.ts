@@ -3,7 +3,6 @@ import prisma from '@/lib/db';
 import { HomeAssistantClient, isEmbeddedMode, isAddonMode } from '@/lib/api/homeassistant';
 import { generateHAConfig, mergeConfiguration, mergeAutomations } from '@/lib/ha-config-generator';
 import { createActivityLog } from '@/lib/activity-log';
-import { extractPrinterPrefix } from '@/lib/entity-patterns';
 import { getHiddenPrinters } from '@/app/api/printers/setup/route';
 import * as fs from 'fs/promises';
 
@@ -65,41 +64,76 @@ export async function POST(request: NextRequest) {
       // Use the same config generator as embedded mode for consistency
       const config = generateHAConfig(printers, webhookUrl, webhookUrl);
 
+      // Return printer registration data so the frontend can register
+      // automations in the same per-printer format as auto-configure
+      const printerRegistrations = printers.map(p => ({
+        prefix: p.prefix,
+        name: p.name,
+        trayIds: [
+          ...p.ams_units.flatMap(ams => ams.trays.map(t => t.entity_id)),
+          ...p.external_spools.map(es => es.entity_id),
+        ],
+      }));
+
       return NextResponse.json({
         trayCount: config.trayCount,
         printerCount: config.printerCount,
         automationsYaml: config.automationsYaml,
         configurationYaml: config.configurationAdditions,
+        printerRegistrations,
       });
     }
 
     if (action === 'register') {
       // Register automations in our database (after user applies to HA)
-      const { trayIds } = body;
+      // Uses same per-printer format as auto-configure for consistent stale detection
+      const { printerRegistrations } = body;
 
-      for (const trayId of trayIds) {
-        const automationId = `spoolmansync_${trayId.replace(/\./g, '_')}`;
+      const currentAutomationIds: string[] = [];
+      for (const reg of printerRegistrations) {
+        const automationId = `spoolmansync_update_spool_${reg.prefix}`;
+        currentAutomationIds.push(automationId);
 
         await prisma.automation.upsert({
           where: { haAutomationId: automationId },
           create: {
             haAutomationId: automationId,
-            trayId,
-            printerId: trayId.split('_')[0], // Extract printer prefix
+            trayId: reg.trayIds.join(','),
+            printerId: reg.name,
           },
           update: {
-            trayId,
+            trayId: reg.trayIds.join(','),
+            printerId: reg.name,
           },
         });
       }
 
-      await createActivityLog({
-        type: 'automation_created',
-        message: `Registered ${trayIds.length} automations`,
-        details: { trayIds },
+      // Clean up stale automation records for printers no longer present
+      const staleRecords = await prisma.automation.findMany({
+        where: {
+          haAutomationId: { startsWith: 'spoolmansync_update_spool_' },
+          NOT: { haAutomationId: { in: currentAutomationIds } },
+        },
+      });
+      if (staleRecords.length > 0) {
+        await prisma.automation.deleteMany({
+          where: { id: { in: staleRecords.map(r => r.id) } },
+        });
+      }
+
+      // Also clean up any legacy external-mode-configured records
+      await prisma.automation.deleteMany({
+        where: { haAutomationId: 'spoolmansync_external-mode-configured' },
       });
 
-      return NextResponse.json({ success: true, count: trayIds.length });
+      const totalTrays = printerRegistrations.reduce((sum: number, r: { trayIds: string[] }) => sum + r.trayIds.length, 0);
+      await createActivityLog({
+        type: 'automation_created',
+        message: `Registered ${printerRegistrations.length} printer(s), ${totalTrays} tray(s)`,
+        details: { printerRegistrations },
+      });
+
+      return NextResponse.json({ success: true, count: printerRegistrations.length });
     }
 
     if (action === 'auto-configure') {
@@ -193,7 +227,7 @@ export async function POST(request: NextRequest) {
         // Register one automation record per printer
         const currentAutomationIds: string[] = [];
         for (const printer of printers) {
-          const prefix = extractPrinterPrefix(printer.entity_id);
+          const prefix = printer.prefix;
           const printerTrayIds: string[] = [];
           for (const ams of printer.ams_units) {
             for (const tray of ams.trays) {

@@ -1,28 +1,14 @@
 /**
  * Home Assistant API client
  * Supports both OAuth2 (external) and trusted networks (embedded) authentication
+ *
+ * Entity discovery uses HA's WebSocket API to fetch the entity/device registries
+ * and match by translation_key (stable metadata set by ha-bambulab regardless of
+ * entity renames or HA language).
  */
 
 import prisma from '@/lib/db';
-import {
-  isPrintStatusEntity,
-  buildPrintStatusPattern,
-  buildAmsPattern,
-  buildTrayPattern,
-  buildExternalSpoolPattern,
-  buildCurrentStagePattern,
-  buildPrintWeightPattern,
-  buildPrintProgressPattern,
-  cleanFriendlyName,
-  getExternalSpoolIndex,
-  // Prefix-agnostic matchers for device-based discovery
-  matchAmsHumidityEntity,
-  matchTrayEntity,
-  matchExternalSpoolEntity,
-  matchCurrentStageEntity,
-  matchPrintWeightEntity,
-  matchPrintProgressEntity,
-} from '@/lib/entity-patterns';
+import WebSocket from 'ws';
 
 export interface HAState {
   entity_id: string;
@@ -46,10 +32,9 @@ export interface HAPrinter {
   entity_id: string;
   name: string;
   state: string;
+  prefix: string;  // Stable prefix for YAML entity naming (derived from unique_id)
   ams_units: HAAMS[];
   external_spools: HATray[];
-  // Additional entities needed for automation YAML generation
-  // These are discovered dynamically to handle localized entity names
   current_stage_entity?: string;
   print_weight_entity?: string;
   print_progress_entity?: string;
@@ -58,11 +43,32 @@ export interface HAPrinter {
 export interface HAAMS {
   entity_id: string;
   name: string;
+  ams_number: number;  // 1-4 for regular AMS, 128+ for AMS HT
   trays: HATray[];
+}
+
+// HA Entity/Device Registry types (fetched via WebSocket API)
+interface EntityRegistryEntry {
+  entity_id: string;
+  platform: string;
+  device_id: string | null;
+  translation_key: string | null;
+  disabled_by: string | null;
+  unique_id: string;
+}
+
+interface DeviceRegistryEntry {
+  id: string;
+  identifiers: [string, string][];
+  via_device_id: string | null;
+  manufacturer: string | null;
+  model: string | null;
+  name: string | null;
 }
 
 export interface HATray {
   entity_id: string;
+  unique_id?: string;     // Stable ID from entity registry (survives entity renames)
   tray_number: number;
   is_external?: boolean;  // True for external spool slots
   name?: string;  // Filament name from RFID (e.g., "Matte Dark Blue")
@@ -627,354 +633,277 @@ export class HomeAssistantClient {
   }
 
   /**
-   * Get all entities from the printer and its related devices (AMS, External Spool)
-   *
-   * ha-bambulab creates separate devices for printer, each AMS, and external spool.
-   * The AMS and External Spool devices have a "via_device_id" that points to the printer device.
-   * (This shows as "Connected via [PrinterName]" in the HA UI)
-   *
-   * This method finds all sensor entities from:
-   * 1. The printer device itself
-   * 2. Any device whose via_device_id points to the printer (AMS units, external spool)
-   *
-   * This enables discovery even when entity ID prefixes don't match (e.g., user renamed entities).
+   * Send commands over a one-shot WebSocket connection to HA.
+   * Opens WS, authenticates, sends all commands, collects results, then closes.
    */
-  async getRelatedDeviceEntities(printerEntityId: string): Promise<string[]> {
-    try {
-      // This Jinja template finds all sensor entities from the printer and its child devices:
-      // 1. Gets the device ID for the print_status entity (the printer)
-      // 2. Finds all sensor entities whose device is either:
-      //    a. The printer device itself, OR
-      //    b. A device whose via_device_id equals the printer's device ID (AMS, external spool)
-      // NOTE: Jinja2 requires namespace() to modify variables inside loops
-      const template = `
-{%- set printer_device_id = device_id('${printerEntityId}') -%}
-{%- set ns = namespace(entities=[]) -%}
-{%- if printer_device_id -%}
-  {%- for state in states.sensor -%}
-    {%- set entity_device_id = device_id(state.entity_id) -%}
-    {%- if entity_device_id -%}
-      {%- if entity_device_id == printer_device_id -%}
-        {%- set ns.entities = ns.entities + [state.entity_id] -%}
-      {%- else -%}
-        {%- set via_device = device_attr(entity_device_id, 'via_device_id') -%}
-        {%- if via_device == printer_device_id -%}
-          {%- set ns.entities = ns.entities + [state.entity_id] -%}
-        {%- endif -%}
-      {%- endif -%}
-    {%- endif -%}
-  {%- endfor -%}
-{%- endif -%}
-{{ ns.entities | tojson }}`.trim();
+  private async wsCommand<T>(commands: Array<{ type: string }>): Promise<T[]> {
+    await this.ensureValidToken();
 
-      const result = await this.renderTemplate(template);
+    // Build WS URL from base URL
+    const wsUrl = this.baseUrl
+      .replace(/^http:\/\//, 'ws://')
+      .replace(/^https:\/\//, 'wss://')
+      + '/api/websocket';
 
-      // Handle empty result
-      if (!result || result.trim() === '') {
-        console.log(`Device-based discovery: no device found for ${printerEntityId}`);
-        return [];
-      }
+    return new Promise<T[]>((resolve, reject) => {
+      const ws = new WebSocket(wsUrl);
+      const results: T[] = new Array(commands.length);
+      let received = 0;
+      let nextId = 1;
 
-      const entities = JSON.parse(result);
-      // Only log edge cases - successful discovery is logged by the caller
-      if (entities.length === 0) {
-        console.log(`Device-based discovery: device found but no related entities for ${printerEntityId}`);
-      }
-      return entities;
-    } catch (error) {
-      console.warn(`Device-based discovery failed for ${printerEntityId}:`, error);
-      return [];
-    }
+      const timeout = setTimeout(() => {
+        ws.close();
+        reject(new Error('WebSocket command timed out after 30s'));
+      }, 30000);
+
+      ws.on('message', (data: WebSocket.Data) => {
+        const msg = JSON.parse(data.toString());
+
+        if (msg.type === 'auth_required') {
+          ws.send(JSON.stringify({
+            type: 'auth',
+            access_token: this.accessToken,
+          }));
+        } else if (msg.type === 'auth_ok') {
+          for (const cmd of commands) {
+            ws.send(JSON.stringify({ id: nextId++, ...cmd }));
+          }
+        } else if (msg.type === 'auth_invalid') {
+          clearTimeout(timeout);
+          ws.close();
+          reject(new Error(`WebSocket authentication failed: ${msg.message || 'invalid token'}`));
+        } else if (msg.type === 'result') {
+          if (!msg.success) {
+            clearTimeout(timeout);
+            ws.close();
+            reject(new Error(`WebSocket command failed: ${JSON.stringify(msg.error)}`));
+            return;
+          }
+          const idx = msg.id - 1; // ids are 1-based
+          results[idx] = msg.result;
+          received++;
+          if (received === commands.length) {
+            clearTimeout(timeout);
+            ws.close();
+            resolve(results);
+          }
+        }
+      });
+
+      ws.on('error', (err: Error) => {
+        clearTimeout(timeout);
+        reject(new Error(`WebSocket error: ${err.message}`));
+      });
+    });
   }
 
   /**
-   * Discover Bambu Lab printers from HA entities
+   * Fetch entity and device registries via WebSocket API.
+   * These contain translation_key and device hierarchy data that the REST API doesn't expose.
+   */
+  async getEntityAndDeviceRegistry(): Promise<{
+    entities: EntityRegistryEntry[];
+    devices: DeviceRegistryEntry[];
+  }> {
+    const [entities, devices] = await this.wsCommand<EntityRegistryEntry[] | DeviceRegistryEntry[]>([
+      { type: 'config/entity_registry/list' },
+      { type: 'config/device_registry/list' },
+    ]);
+    return {
+      entities: entities as unknown as EntityRegistryEntry[],
+      devices: devices as unknown as DeviceRegistryEntry[],
+    };
+  }
+
+  /**
+   * Discover Bambu Lab printers using translation_key from the HA entity/device registries.
+   *
+   * translation_key is stable metadata set by ha-bambulab regardless of entity renames
+   * or HA language settings. This replaces the regex-based approach that required
+   * maintaining patterns for 17+ languages and broke on renamed entities.
+   *
+   * Discovery algorithm:
+   * 1. Fetch entity + device registries via WebSocket (for translation_key, device hierarchy)
+   * 2. Fetch all states via REST (for current values/attributes)
+   * 3. Find printers: bambu_lab entities with translation_key === 'print_status'
+   * 4. Walk device tree: printer → child devices (AMS, external spool) via via_device_id
+   * 5. Classify child device entities by translation_key (tray_1-4, external_spool, etc.)
    */
   async discoverPrinters(): Promise<HAPrinter[]> {
-    const states = await this.getStates();
+    const [registry, states] = await Promise.all([
+      this.getEntityAndDeviceRegistry(),
+      this.getStates(),
+    ]);
+
+    const { entities, devices } = registry;
+    const stateMap = new Map(states.map(s => [s.entity_id, s]));
+
+    // Build device → entities map (only bambu_lab, non-disabled)
+    const bambuEntities = entities.filter(e => e.platform === 'bambu_lab' && !e.disabled_by);
+    const deviceEntityMap = new Map<string, EntityRegistryEntry[]>();
+    for (const entity of bambuEntities) {
+      if (!entity.device_id) continue;
+      if (!deviceEntityMap.has(entity.device_id)) {
+        deviceEntityMap.set(entity.device_id, []);
+      }
+      deviceEntityMap.get(entity.device_id)!.push(entity);
+    }
+
+    // Find all print_status entities (identifies printers)
+    const printerEntities = bambuEntities.filter(e =>
+      getEffectiveTranslationKey(e) === 'print_status'
+    );
+
+    // Deduplicate by device_id — ha-bambulab may create versioned entities
+    const seenDevices = new Set<string>();
     const printers: HAPrinter[] = [];
 
-    // Find printer entities using centralized localized patterns
-    // See src/lib/entity-patterns.ts to add support for more languages
-    const printerStates = states.filter(s => isPrintStatusEntity(s.entity_id));
+    for (const printerEntity of printerEntities) {
+      if (!printerEntity.device_id || seenDevices.has(printerEntity.device_id)) continue;
+      seenDevices.add(printerEntity.device_id);
 
-    // Deduplicate by prefix — ha-bambulab may create versioned entities
-    // (e.g., print_status and print_status_2) for the same printer
-    const discoveredPrefixes = new Set<string>();
+      // If multiple print_status entities exist for this device, pick the best one
+      const printStatusCandidates = printerEntities.filter(e => e.device_id === printerEntity.device_id);
+      const bestPrinterEntity = pickBestEntity(printStatusCandidates, stateMap);
+      if (!bestPrinterEntity) continue;
 
-    for (const printerState of printerStates) {
-      // Extract printer prefix using centralized patterns
-      const match = printerState.entity_id.match(buildPrintStatusPattern());
-      if (!match) continue;
+      const printerState = stateMap.get(bestPrinterEntity.entity_id);
+      const printerDevice = devices.find(d => d.id === bestPrinterEntity.device_id);
 
-      const prefix = match[1];
-      if (discoveredPrefixes.has(prefix)) continue;
-      discoveredPrefixes.add(prefix);
-      const printer: HAPrinter = {
-        entity_id: printerState.entity_id,
-        name: cleanFriendlyName(printerState.attributes.friendly_name as string, prefix),
-        state: printerState.state,
-        ams_units: [],
-        external_spools: [],
-      };
+      // Derive stable prefix from unique_id (always {Model}_{Serial}_{key})
+      const prefix = bestPrinterEntity.unique_id
+        .replace(/_print_status$/, '')
+        .toLowerCase();
 
-      // Find AMS units for this printer
-      // Group by AMS number and prefer highest suffix number (newer ha-bambulab versions use _2, _3, etc.)
-      // Uses centralized localized patterns - see src/lib/entity-patterns.ts
-      const amsPattern = buildAmsPattern(prefix);
-      let amsStates = states.filter(s => amsPattern.test(s.entity_id));
+      const name = printerDevice?.name || prefix;
 
-      // Helper to extract entity suffix number (0 if no suffix)
-      const getEntitySuffix = (entityId: string): number => {
-        const suffixMatch = entityId.match(/_(\d+)$/);
-        return suffixMatch ? parseInt(suffixMatch[1], 10) : 0;
-      };
+      // Find child devices (AMS units, external spools) via device hierarchy
+      const childDevices = devices.filter(d => d.via_device_id === bestPrinterEntity.device_id);
 
-      // If prefix-based discovery found nothing, fall back to device-based discovery
-      // This handles cases where users renamed entity IDs causing prefix mismatches
-      let deviceEntities: string[] = [];
-      if (amsStates.length === 0) {
-        console.log(`Prefix "${prefix}" found no AMS, using device-based fallback...`);
-        deviceEntities = await this.getRelatedDeviceEntities(printerState.entity_id);
-        if (deviceEntities.length > 0) {
-          // Find AMS humidity entities using prefix-agnostic matching
-          amsStates = states.filter(s =>
-            deviceEntities.includes(s.entity_id) && matchAmsHumidityEntity(s.entity_id)
-          );
-          console.log(`Device fallback: ${deviceEntities.length} total entities, ${amsStates.length} AMS units (from humidity sensors)`);
+      // Classify child devices by their entities' translation_keys
+      const amsUnits: HAAMS[] = [];
+      const externalSpools: HATray[] = [];
 
-          // If still no AMS found via humidity sensors, try to infer from tray entities
-          // This handles A1 with AMS Lite which may not have humidity sensors
-          if (amsStates.length === 0) {
-            const amsNumbersFromTrays = new Set<string>();
-            for (const entityId of deviceEntities) {
-              const trayMatch = matchTrayEntity(entityId);
-              if (trayMatch) {
-                amsNumbersFromTrays.add(trayMatch.amsNumber);
-              }
-            }
-            if (amsNumbersFromTrays.size > 0) {
-              console.log(`Device fallback: found AMS units from tray entities: ${[...amsNumbersFromTrays].join(', ')}`);
-              // Create synthetic AMS entries using the first tray entity for each AMS number
-              for (const amsNum of amsNumbersFromTrays) {
-                const firstTray = states.find(s =>
-                  deviceEntities.includes(s.entity_id) &&
-                  matchTrayEntity(s.entity_id)?.amsNumber === amsNum
-                );
-                if (firstTray) {
-                  amsStates.push(firstTray);
-                }
-              }
-            }
-          }
-        }
-      }
+      for (const childDevice of childDevices) {
+        const childEntities = deviceEntityMap.get(childDevice.id) || [];
 
-      // Group AMS entities by their AMS number
-      const amsByNumber = new Map<string, HAState[]>();
-      for (const amsState of amsStates) {
-        // Try prefix-based pattern first, fall back to prefix-agnostic matchers
-        // AMS number is optional in pattern - A1 with AMS Lite uses "_ams_" without a number
-        const amsMatch = amsState.entity_id.match(amsPattern);
-        let amsNumber: string | null = null;
-        if (amsMatch) {
-          if (amsMatch[4]) {
-            // Group 4: AMS HT type-first number (ams_ht_N_) — offset by 127
-            amsNumber = String(127 + parseInt(amsMatch[4], 10));
-          } else if (amsMatch[3] === 'ht') {
-            // Group 3: standalone "ht" — use 128
-            amsNumber = '128';
-          } else if (amsMatch[1] && amsState.entity_id.includes('_ams_' + amsMatch[1] + '_ht_')) {
-            // Group 1 with ht suffix: number-first format (ams_N_ht_) — offset by 127
-            amsNumber = String(127 + parseInt(amsMatch[1], 10));
-          } else {
-            amsNumber = amsMatch[1] || amsMatch[2] || amsMatch[3] || '1';
-          }
-        }
-        // If prefix-based didn't match, try humidity matcher
-        if (!amsNumber) {
-          amsNumber = matchAmsHumidityEntity(amsState.entity_id);
-        }
-        // If still no match, try tray matcher (for A1 AMS Lite without humidity sensors)
-        if (!amsNumber) {
-          const trayMatch = matchTrayEntity(amsState.entity_id);
-          if (trayMatch) amsNumber = trayMatch.amsNumber;
-        }
-        if (!amsNumber) continue;
-        if (!amsByNumber.has(amsNumber)) {
-          amsByNumber.set(amsNumber, []);
-        }
-        amsByNumber.get(amsNumber)!.push(amsState);
-      }
-
-      // Process each unique AMS number, picking the best entity
-      for (const [amsNumber, candidates] of amsByNumber) {
-        // Pick the best candidate: prefer available entities, then prefer highest suffix number
-        const bestAmsState = candidates.reduce((best, current) => {
-          const bestAvailable = best.state !== 'unavailable' && best.state !== 'unknown';
-          const currentAvailable = current.state !== 'unavailable' && current.state !== 'unknown';
-
-          // Prefer available over unavailable
-          if (currentAvailable && !bestAvailable) return current;
-          if (bestAvailable && !currentAvailable) return best;
-
-          // Both same availability - prefer highest suffix number (most recent version)
-          const currentSuffix = getEntitySuffix(current.entity_id);
-          const bestSuffix = getEntitySuffix(best.entity_id);
-          if (currentSuffix > bestSuffix) return current;
-
-          return best;
+        // Check for tray entities (tray_1 through tray_4) → this is an AMS device
+        const trayEntities = childEntities.filter(e => {
+          const key = getEffectiveTranslationKey(e);
+          return key !== null && /^tray_[1-4]$/.test(key);
         });
 
-        const numAms = parseInt(amsNumber, 10);
-        const ams: HAAMS = {
-          entity_id: bestAmsState.entity_id,
-          name: numAms >= 128 ? 'AMS HT' : `AMS ${amsNumber}`,
-          trays: [],
-        };
+        // Check for external_spool entity → this is an External Spool device
+        const extSpoolEntities = childEntities.filter(e =>
+          getEffectiveTranslationKey(e) === 'external_spool'
+        );
 
-        // Find trays for this AMS (newer versions use _2, _3, etc. suffix)
-        // Uses centralized localized patterns - see src/lib/entity-patterns.ts
-        for (let trayNum = 1; trayNum <= 4; trayNum++) {
-          const trayPattern = buildTrayPattern(prefix, amsNumber, trayNum);
-          let trayCandidates = states.filter(s => trayPattern.test(s.entity_id));
+        if (trayEntities.length > 0) {
+          const amsNumber = parseAmsNumber(childDevice, childEntities);
+          const humidityEntity = childEntities.find(e =>
+            getEffectiveTranslationKey(e) === 'humidity_index'
+          );
 
-          // Fall back to device-based discovery if prefix-based failed
-          if (trayCandidates.length === 0 && deviceEntities.length > 0) {
-            trayCandidates = states.filter(s => {
-              if (!deviceEntities.includes(s.entity_id)) return false;
-              const trayMatch = matchTrayEntity(s.entity_id);
-              return trayMatch && trayMatch.amsNumber === amsNumber && trayMatch.trayNumber === trayNum;
-            });
-          }
+          const ams: HAAMS = {
+            entity_id: humidityEntity?.entity_id || trayEntities[0].entity_id,
+            name: amsNumber >= 128 ? 'AMS HT' : `AMS ${amsNumber}`,
+            ams_number: amsNumber,
+            trays: [],
+          };
 
-          if (trayCandidates.length > 0) {
-            // Pick the best: prefer available, then prefer highest suffix number
-            const bestTray = trayCandidates.reduce((best, current) => {
-              const bestAvailable = best.state !== 'unavailable' && best.state !== 'unknown';
-              const currentAvailable = current.state !== 'unavailable' && current.state !== 'unknown';
+          for (const trayEntity of trayEntities) {
+            const key = getEffectiveTranslationKey(trayEntity)!;
+            const trayNum = parseInt(key.replace('tray_', ''), 10);
 
-              if (currentAvailable && !bestAvailable) return current;
-              if (bestAvailable && !currentAvailable) return best;
+            // If multiple entities for same tray (versioned), pick the best
+            const sameTray = trayEntities.filter(e => getEffectiveTranslationKey(e) === key);
+            const bestTray = pickBestEntity(sameTray, stateMap);
+            if (!bestTray || bestTray.entity_id !== trayEntity.entity_id) continue;
 
-              // Both same availability - prefer highest suffix number
-              const currentSuffix = getEntitySuffix(current.entity_id);
-              const bestSuffix = getEntitySuffix(best.entity_id);
-              if (currentSuffix > bestSuffix) return current;
-              return best;
-            });
-
+            const trayState = stateMap.get(bestTray.entity_id);
             ams.trays.push({
               entity_id: bestTray.entity_id,
+              unique_id: bestTray.unique_id,
               tray_number: trayNum,
-              name: bestTray.attributes.name as string,  // Filament name from RFID
-              color: bestTray.attributes.color as string,
-              material: bestTray.attributes.type as string,
-              tray_uuid: bestTray.attributes.tray_uuid as string,  // Spool serial number
-              remaining_weight: bestTray.attributes.remain as number,
+              name: trayState?.attributes.name as string,
+              color: trayState?.attributes.color as string,
+              material: trayState?.attributes.type as string,
+              tray_uuid: trayState?.attributes.tray_uuid as string,
+              remaining_weight: trayState?.attributes.remain as number,
             });
           }
+
+          // Sort trays by tray number
+          ams.trays.sort((a, b) => a.tray_number - b.tray_number);
+          amsUnits.push(ams);
         }
 
-        printer.ams_units.push(ams);
-      }
+        if (extSpoolEntities.length > 0) {
+          const bestExt = pickBestEntity(extSpoolEntities, stateMap);
+          if (!bestExt) continue;
 
-      // Find external spools using centralized localized patterns
-      // H2C printers may have multiple external spools (externalspool, externalspool2, etc.)
-      // See src/lib/entity-patterns.ts to add support for more languages
-      const extPattern = buildExternalSpoolPattern(prefix);
-      let extCandidates = states.filter(s => extPattern.test(s.entity_id));
-
-      // Fall back to device-based discovery if prefix-based failed
-      if (extCandidates.length === 0 && deviceEntities.length > 0) {
-        extCandidates = states.filter(s =>
-          deviceEntities.includes(s.entity_id) && matchExternalSpoolEntity(s.entity_id)
-        );
-      }
-
-      if (extCandidates.length > 0) {
-        // Group by external spool index (1, 2, etc.)
-        const extByIndex = new Map<number, HAState[]>();
-        for (const ext of extCandidates) {
-          const idx = getExternalSpoolIndex(ext.entity_id);
-          if (!extByIndex.has(idx)) {
-            extByIndex.set(idx, []);
-          }
-          extByIndex.get(idx)!.push(ext);
-        }
-
-        // Pick the best candidate per index, sorted by index
-        const sortedIndices = [...extByIndex.keys()].sort((a, b) => a - b);
-        for (const idx of sortedIndices) {
-          const candidates = extByIndex.get(idx)!;
-          const bestExt = candidates.reduce((best, current) => {
-            const bestAvailable = best.state !== 'unavailable' && best.state !== 'unknown';
-            const currentAvailable = current.state !== 'unavailable' && current.state !== 'unknown';
-
-            if (currentAvailable && !bestAvailable) return current;
-            if (bestAvailable && !currentAvailable) return best;
-
-            const currentSuffix = getEntitySuffix(current.entity_id);
-            const bestSuffix = getEntitySuffix(best.entity_id);
-            if (currentSuffix > bestSuffix) return current;
-            return best;
-          });
-
-          printer.external_spools.push({
+          const extState = stateMap.get(bestExt.entity_id);
+          externalSpools.push({
             entity_id: bestExt.entity_id,
+            unique_id: bestExt.unique_id,
             tray_number: 0,
             is_external: true,
-            name: bestExt.attributes.name as string,
-            color: bestExt.attributes.color as string,
-            material: bestExt.attributes.type as string,
-            tray_uuid: bestExt.attributes.tray_uuid as string,
-            remaining_weight: bestExt.attributes.remain as number,
+            name: extState?.attributes.name as string,
+            color: extState?.attributes.color as string,
+            material: extState?.attributes.type as string,
+            tray_uuid: extState?.attributes.tray_uuid as string,
+            remaining_weight: extState?.attributes.remain as number,
           });
         }
       }
 
-      // Discover additional entities needed for automation YAML generation
-      // These are found dynamically to handle localized entity names
-      const currentStagePattern = buildCurrentStagePattern(prefix);
-      let currentStageEntity = states.find(s => currentStagePattern.test(s.entity_id));
-      // Fall back to device-based discovery
-      if (!currentStageEntity && deviceEntities.length > 0) {
-        currentStageEntity = states.find(s =>
-          deviceEntities.includes(s.entity_id) && matchCurrentStageEntity(s.entity_id)
-        );
-      }
-      if (currentStageEntity) {
-        printer.current_stage_entity = currentStageEntity.entity_id;
-      }
+      // Sort AMS units by number, external spools by index derived from unique_id
+      amsUnits.sort((a, b) => a.ams_number - b.ams_number);
+      externalSpools.sort((a, b) => {
+        const aEntity = bambuEntities.find(e => e.entity_id === a.entity_id);
+        const bEntity = bambuEntities.find(e => e.entity_id === b.entity_id);
+        return getExternalSpoolIndex(aEntity?.unique_id || '') - getExternalSpoolIndex(bEntity?.unique_id || '');
+      });
 
-      const printWeightPattern = buildPrintWeightPattern(prefix);
-      let printWeightEntity = states.find(s => printWeightPattern.test(s.entity_id));
-      // Fall back to device-based discovery
-      if (!printWeightEntity && deviceEntities.length > 0) {
-        printWeightEntity = states.find(s =>
-          deviceEntities.includes(s.entity_id) && matchPrintWeightEntity(s.entity_id)
-        );
-      }
-      if (printWeightEntity) {
-        printer.print_weight_entity = printWeightEntity.entity_id;
-      }
+      // Find printer-level entities by translation_key
+      const printerDeviceEntities = deviceEntityMap.get(bestPrinterEntity.device_id!) || [];
 
-      const printProgressPattern = buildPrintProgressPattern(prefix);
-      let printProgressEntity = states.find(s => printProgressPattern.test(s.entity_id));
-      // Fall back to device-based discovery
-      if (!printProgressEntity && deviceEntities.length > 0) {
-        printProgressEntity = states.find(s =>
-          deviceEntities.includes(s.entity_id) && matchPrintProgressEntity(s.entity_id)
-        );
-      }
-      if (printProgressEntity) {
-        printer.print_progress_entity = printProgressEntity.entity_id;
-      }
+      const findPrinterEntity = (key: string) => {
+        const candidates = printerDeviceEntities.filter(e => getEffectiveTranslationKey(e) === key);
+        return pickBestEntity(candidates, stateMap);
+      };
+
+      const printer: HAPrinter = {
+        entity_id: bestPrinterEntity.entity_id,
+        name,
+        state: printerState?.state || 'unknown',
+        prefix,
+        ams_units: amsUnits,
+        external_spools: externalSpools,
+        current_stage_entity: findPrinterEntity('stage')?.entity_id,
+        print_weight_entity: findPrinterEntity('print_weight')?.entity_id,
+        print_progress_entity: findPrinterEntity('print_progress')?.entity_id,
+      };
 
       printers.push(printer);
     }
 
     return printers;
+  }
+
+  /**
+   * Get a mapping of entity_id → unique_id for all bambu_lab entities.
+   * Used by the webhook handler to convert entity_ids to stable unique_ids.
+   */
+  async getEntityIdToUniqueIdMap(): Promise<Map<string, string>> {
+    const { entities } = await this.getEntityAndDeviceRegistry();
+    const map = new Map<string, string>();
+    for (const entity of entities) {
+      if (entity.platform === 'bambu_lab') {
+        map.set(entity.entity_id, entity.unique_id);
+      }
+    }
+    return map;
   }
 
   /**
@@ -1245,4 +1174,104 @@ export interface HAUser {
   system_generated: boolean;
   group_ids: string[];
   credentials: Array<{ type: string }>;
+}
+
+// =============================================================================
+// Helper functions for translation_key-based discovery
+// =============================================================================
+
+/**
+ * Get the effective translation_key for an entity.
+ * Falls back to parsing the unique_id suffix for very old ha-bambulab versions
+ * that don't set translation_key.
+ */
+function getEffectiveTranslationKey(entity: EntityRegistryEntry): string | null {
+  if (entity.translation_key) return entity.translation_key;
+
+  // Fallback: extract known key from unique_id suffix
+  const knownKeys = [
+    'print_status', 'print_weight', 'print_progress', 'print_length',
+    'tray_1', 'tray_2', 'tray_3', 'tray_4',
+    'external_spool', 'humidity_index', 'active_tray', 'stage',
+  ];
+  for (const key of knownKeys) {
+    if (entity.unique_id.endsWith(`_${key}`)) return key;
+  }
+  return null;
+}
+
+/**
+ * Pick the best entity from multiple candidates (e.g., versioned entities for same function).
+ * Prefers: non-disabled > available state > original (no _N suffix) entity.
+ */
+function pickBestEntity(
+  candidates: EntityRegistryEntry[],
+  stateMap: Map<string, HAState>
+): EntityRegistryEntry | undefined {
+  if (candidates.length === 0) return undefined;
+  if (candidates.length === 1) return candidates[0];
+
+  return candidates.reduce((best, current) => {
+    const bestState = stateMap.get(best.entity_id);
+    const currentState = stateMap.get(current.entity_id);
+    const bestAvailable = bestState && bestState.state !== 'unavailable' && bestState.state !== 'unknown';
+    const currentAvailable = currentState && currentState.state !== 'unavailable' && currentState.state !== 'unknown';
+
+    if (currentAvailable && !bestAvailable) return current;
+    if (bestAvailable && !currentAvailable) return best;
+
+    // Both same availability — prefer entity without _N suffix (original)
+    const bestHasSuffix = /_\d+$/.test(best.entity_id);
+    const currentHasSuffix = /_\d+$/.test(current.entity_id);
+    if (!currentHasSuffix && bestHasSuffix) return current;
+    if (!bestHasSuffix && currentHasSuffix) return best;
+
+    return best;
+  });
+}
+
+/**
+ * Determine AMS number from device metadata.
+ * Uses device name, model, and entity unique_ids as signals.
+ */
+function parseAmsNumber(device: DeviceRegistryEntry, deviceEntities: EntityRegistryEntry[]): number {
+  const name = device.name || '';
+
+  // "AMS HT 2" → 129, "AMS HT" → 128
+  const htMatch = name.match(/AMS\s*HT\s*(\d+)?/i);
+  if (htMatch) return 127 + (htMatch[1] ? parseInt(htMatch[1], 10) : 1);
+
+  // "AMS Lite" → 1
+  if (/AMS\s*Lite/i.test(name)) return 1;
+
+  // "AMS 1" → 1, "AMS 2" → 2
+  const amsMatch = name.match(/AMS\s+(\d+)/i);
+  if (amsMatch) return parseInt(amsMatch[1], 10);
+
+  // Check device model for HT
+  if (device.model && /HT/i.test(device.model)) return 128;
+
+  // Check entity unique_ids for HT markers
+  for (const entity of deviceEntities) {
+    if (/_AMSHT_/i.test(entity.unique_id) || /_AMS_HT_/i.test(entity.unique_id)) {
+      return 128;
+    }
+  }
+
+  // "AMS" alone → 1
+  if (/\bAMS\b/i.test(name)) return 1;
+
+  // Default
+  return 1;
+}
+
+/**
+ * Extract external spool index from entity unique_id.
+ * e.g., "..._ExternalSpool_external_spool" → 1
+ *       "..._ExternalSpool2_external_spool" → 2
+ */
+function getExternalSpoolIndex(uniqueId: string): number {
+  const match = uniqueId.match(/_ExternalSpool(\d*)/i);
+  if (!match) return 1;
+  return match[1] ? parseInt(match[1], 10) : 1;
 }

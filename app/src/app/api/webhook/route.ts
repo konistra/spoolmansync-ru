@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/db';
 import { SpoolmanClient } from '@/lib/api/spoolman';
+import { HomeAssistantClient } from '@/lib/api/homeassistant';
 import { spoolEvents, SPOOL_UPDATED, SpoolUpdateEvent } from '@/lib/events';
 import { createActivityLog } from '@/lib/activity-log';
 import { checkAndUpdateAlerts } from '@/lib/alerts';
@@ -43,6 +44,31 @@ export async function POST(request: NextRequest) {
 
     const client = new SpoolmanClient(spoolmanConnection.url);
 
+    // Resolve entity_id → unique_id for tray matching.
+    // Spool assignments are stored by unique_id (stable across entity renames),
+    // but HA automations send entity_ids. This mapping bridges the two.
+    let entityIdToUniqueId: Map<string, string> | null = null;
+    const resolveToUniqueId = async (entityId: string): Promise<string> => {
+      if (!entityIdToUniqueId) {
+        try {
+          const haClient = await HomeAssistantClient.fromConnection();
+          if (haClient) {
+            entityIdToUniqueId = await haClient.getEntityIdToUniqueIdMap();
+          }
+        } catch (err) {
+          console.warn('Could not fetch entity registry for unique_id mapping:', err);
+        }
+        if (!entityIdToUniqueId) entityIdToUniqueId = new Map();
+      }
+      return entityIdToUniqueId.get(entityId) || entityId;
+    };
+
+    // Wire up the resolver so all SpoolmanClient write paths defensively
+    // convert any entity_id in active_tray to a stable unique_id.
+    // This prevents race conditions where concurrent Spoolman API calls
+    // revert extra fields to stale data containing entity_ids.
+    client.setEntityIdResolver(resolveToUniqueId);
+
     // Handle spool_usage event - deduct filament weight from spool
     if (event === 'spool_usage') {
       const { used_weight, active_tray_id, tray_uuid } = body;
@@ -57,10 +83,16 @@ export async function POST(request: NextRequest) {
 
       const spools = await client.getSpools();
 
-      // Match by active_tray_id - this is set when users assign spools to trays in our UI
-      // Works for ALL spool vendors (not dependent on Bambu RFID tags)
-      const jsonTrayId = JSON.stringify(active_tray_id);
-      const matchedSpool = spools.find(s => s.extra?.['active_tray'] === jsonTrayId);
+      // Match by unique_id (resolved from entity_id sent by HA automation)
+      const trayUniqueId = await resolveToUniqueId(active_tray_id);
+      const jsonTrayId = JSON.stringify(trayUniqueId);
+      let matchedSpool = spools.find(s => s.extra?.['active_tray'] === jsonTrayId);
+
+      // Fallback: try matching by entity_id directly (for pre-migration spools)
+      if (!matchedSpool) {
+        const jsonEntityId = JSON.stringify(active_tray_id);
+        matchedSpool = spools.find(s => s.extra?.['active_tray'] === jsonEntityId);
+      }
 
       if (!matchedSpool) {
         console.warn(`No spool assigned to tray ${active_tray_id}`);
@@ -149,14 +181,22 @@ export async function POST(request: NextRequest) {
       const { tray_entity_id, tray_uuid, name, material } = body;
       const spools = await client.getSpools();
 
+      // Resolve entity_id to unique_id for matching and assignment
+      const trayUniqueId = await resolveToUniqueId(tray_entity_id);
+
       // Check if tray is now empty (no filament, or explicitly "Empty")
       // ha-bambulab reports name="Empty" when tray has no filament
       const trayIsEmpty = !name || name.toLowerCase() === 'empty' || name === '';
 
       if (trayIsEmpty) {
         // Auto-unassign any spool currently assigned to this tray
-        const jsonTrayId = JSON.stringify(tray_entity_id);
-        const assignedSpool = spools.find(s => s.extra?.['active_tray'] === jsonTrayId);
+        const jsonTrayId = JSON.stringify(trayUniqueId);
+        let assignedSpool = spools.find(s => s.extra?.['active_tray'] === jsonTrayId);
+        // Fallback: try matching by entity_id directly (pre-migration)
+        if (!assignedSpool) {
+          const jsonEntityId = JSON.stringify(tray_entity_id);
+          assignedSpool = spools.find(s => s.extra?.['active_tray'] === jsonEntityId);
+        }
 
         if (assignedSpool) {
           console.log(`Tray ${tray_entity_id} is now empty, unassigning spool #${assignedSpool.id}`);
@@ -205,7 +245,7 @@ export async function POST(request: NextRequest) {
         const matchedSpool = await client.findSpoolByTag(tray_uuid);
 
         if (matchedSpool) {
-          await client.assignSpoolToTray(matchedSpool.id, tray_entity_id);
+          await client.assignSpoolToTray(matchedSpool.id, trayUniqueId);
 
           // Emit real-time update event
           const updateEvent: SpoolUpdateEvent = {

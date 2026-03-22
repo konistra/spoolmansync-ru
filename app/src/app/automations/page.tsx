@@ -15,11 +15,18 @@ import {
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 
+interface PrinterRegistration {
+  prefix: string;
+  name: string;
+  trayIds: string[];
+}
+
 interface AutomationData {
   trayCount: number;
   printerCount: number;
   automationsYaml: string;
   configurationYaml: string;
+  printerRegistrations: PrinterRegistration[];
 }
 
 interface RegisteredAutomation {
@@ -223,7 +230,7 @@ export default function AutomationsPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'register',
-          trayIds: ['external-mode-configured'],
+          printerRegistrations: automationData.printerRegistrations,
         }),
       });
 
@@ -550,7 +557,7 @@ export default function AutomationsPage() {
               <CardHeader>
                 <CardTitle>Registered Automations</CardTitle>
                 <CardDescription>
-                  These trays are being monitored for changes
+                  These printers and trays are being monitored
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -558,9 +565,14 @@ export default function AutomationsPage() {
                   {registeredAutomations.map((auto) => (
                     <div
                       key={auto.id}
-                      className="flex items-center justify-between p-2 bg-muted rounded"
+                      className="flex items-center justify-between p-3 bg-muted rounded"
                     >
-                      <code className="text-sm">{auto.trayId}</code>
+                      <div>
+                        <div className="font-medium">{auto.printerId}</div>
+                        <div className="text-sm text-muted-foreground">
+                          {auto.trayId.split(',').length} tray(s) monitored
+                        </div>
+                      </div>
                       <span className="text-xs text-muted-foreground">
                         {new Date(auto.createdAt).toLocaleDateString()}
                       </span>

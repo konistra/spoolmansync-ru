@@ -112,11 +112,55 @@ export const BUILT_IN_FILTER_FIELDS = [
  */
 export const DEFAULT_ENABLED_FILTERS = ['material', 'vendor'];
 
+/**
+ * Resolver function that converts entity_ids to stable unique_ids.
+ * Provided by callers that have access to the HA entity registry.
+ */
+export type EntityIdResolver = (entityId: string) => Promise<string>;
+
 export class SpoolmanClient {
   private baseUrl: string;
+  private entityIdResolver: EntityIdResolver | null = null;
 
   constructor(baseUrl: string) {
     this.baseUrl = baseUrl.replace(/\/$/, '');
+  }
+
+  /**
+   * Set a resolver that converts entity_ids to unique_ids.
+   * When set, all read-modify-write operations on the extra field will
+   * defensively convert any entity_id in active_tray to a stable unique_id.
+   * This prevents race conditions where concurrent Spoolman API calls
+   * (e.g., PUT /spool/{id}/use) revert the extra field to stale data
+   * containing entity_ids instead of unique_ids.
+   */
+  setEntityIdResolver(resolver: EntityIdResolver): void {
+    this.entityIdResolver = resolver;
+  }
+
+  /**
+   * Sanitize an extra object before writing to Spoolman.
+   * Converts any entity_id in active_tray to a unique_id.
+   */
+  private async sanitizeExtra(extra: Record<string, string>): Promise<Record<string, string>> {
+    if (!this.entityIdResolver) return extra;
+
+    const activeTrayRaw = extra['active_tray'];
+    if (!activeTrayRaw) return extra;
+
+    try {
+      const parsed = JSON.parse(activeTrayRaw);
+      if (typeof parsed === 'string' && parsed.startsWith('sensor.')) {
+        const uniqueId = await this.entityIdResolver(parsed);
+        if (uniqueId !== parsed) {
+          extra['active_tray'] = JSON.stringify(uniqueId);
+        }
+      }
+    } catch {
+      // Not valid JSON, leave as-is
+    }
+
+    return extra;
   }
 
   private async fetch<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
@@ -163,6 +207,16 @@ export class SpoolmanClient {
   }
 
   /**
+   * Update a spool (generic PATCH)
+   */
+  async updateSpool(id: number, data: Record<string, unknown>): Promise<Spool> {
+    return this.fetch(`/spool/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
+  /**
    * Get spools currently assigned to a tray
    */
   async getSpoolsByTray(trayId: string): Promise<Spool[]> {
@@ -198,7 +252,7 @@ export class SpoolmanClient {
     return this.fetch(`/spool/${spoolId}`, {
       method: 'PATCH',
       body: JSON.stringify({
-        extra: newExtra,
+        extra: await this.sanitizeExtra(newExtra),
       }),
     });
   }
@@ -229,7 +283,7 @@ export class SpoolmanClient {
     return this.fetch<Spool>(`/spool/${spoolId}`, {
       method: 'PATCH',
       body: JSON.stringify({
-        extra: newExtra,
+        extra: await this.sanitizeExtra(newExtra),
       }),
     });
   }
@@ -260,7 +314,7 @@ export class SpoolmanClient {
     return this.fetch<Spool>(`/spool/${spoolId}`, {
       method: 'PATCH',
       body: JSON.stringify({
-        extra: newExtra,
+        extra: await this.sanitizeExtra(newExtra),
       }),
     });
   }
@@ -295,7 +349,7 @@ export class SpoolmanClient {
           await this.fetch<Spool>(`/spool/${spool.id}`, {
             method: 'PATCH',
             body: JSON.stringify({
-              extra: newExtra,
+              extra: await this.sanitizeExtra(newExtra),
             }),
           });
         }

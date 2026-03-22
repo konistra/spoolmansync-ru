@@ -16,6 +16,7 @@ interface PrinterWithSpools extends HAPrinter {
   ams_units: Array<{
     entity_id: string;
     name: string;
+    ams_number: number;
     trays: Array<{
       entity_id: string;
       tray_number: number;
@@ -46,6 +47,7 @@ export default function Dashboard() {
   const [printers, setPrinters] = useState<PrinterWithSpools[]>([]);
   const [spools, setSpools] = useState<Spool[]>([]);
   const [lowFilamentAlerts, setLowFilamentAlerts] = useState<ActiveAlert[]>([]);
+  const [automationsStale, setAutomationsStale] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -96,6 +98,7 @@ export default function Dashboard() {
         if (printersRes.ok) {
           const printersData = await printersRes.json();
           setPrinters(printersData.printers || []);
+          setAutomationsStale(printersData.automationsStale || false);
         }
 
         if (spoolsRes.ok) {
@@ -341,6 +344,33 @@ export default function Dashboard() {
           </Card>
         ) : (
           <div className="space-y-6">
+            {/* Warn when HA entity IDs changed since automations were configured */}
+            {automationsStale && (
+              <Alert variant="destructive">
+                <svg
+                  className="h-4 w-4"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-2.694-.833-3.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z"
+                  />
+                </svg>
+                <AlertTitle>Automations Out of Date</AlertTitle>
+                <AlertDescription>
+                  Entity IDs in Home Assistant have changed since automations were last configured.
+                  Tray change detection and filament usage tracking may not work until you reconfigure.{' '}
+                  <Link href="/automations" className="underline hover:no-underline font-medium">
+                    Reconfigure Automations
+                  </Link>
+                </AlertDescription>
+              </Alert>
+            )}
+
             {/* Show instruction banner when there are unassigned trays */}
             {unassignedTrays.length > 0 && (
               <Alert>

@@ -8,7 +8,6 @@
  */
 
 import { HAPrinter } from './api/homeassistant';
-import { extractPrinterPrefix } from './entity-patterns';
 
 export interface GeneratedConfig {
   automationsYaml: string;
@@ -60,7 +59,7 @@ export function generateHAConfig(
   let totalTrayCount = 0;
 
   for (const printer of printers) {
-    const prefix = extractPrinterPrefix(printer.entity_id);
+    const prefix = printer.prefix;
 
     // Check for missing entities
     const missingEntities: string[] = [];
@@ -101,13 +100,7 @@ export function generateHAConfig(
     }
 
     for (const ams of printer.ams_units) {
-      // Extract AMS number, handling type-first format (ams_pro_2_, ams_ht_1_)
-      const amsMatch = ams.entity_id.match(/_ams_(?:(?:pro|ht)_)?(\d+|lite)(?:_(?:pro|ht))?_/);
-      let amsNumber = amsMatch ? (amsMatch[1] === 'lite' ? 1 : parseInt(amsMatch[1], 10)) : 1;
-      // Apply HT offset if entity contains _ams_ht_ and number < 128
-      if (amsNumber < 128 && ams.entity_id.includes('_ams_ht_')) {
-        amsNumber = 127 + amsNumber;
-      }
+      const amsNumber = ams.ams_number;
       for (const tray of ams.trays) {
         allTrays.push({
           entityId: tray.entity_id,
@@ -211,14 +204,14 @@ function generateAutomationsYaml(
   variables:
     # For tray trigger: get the old tray composite ID (what we're switching FROM)
     old_tray: |-
-      {% if trigger.id == 'tray' and trigger.from_state.state not in [None, '', 'unknown', 'unavailable'] %}
+      {% if trigger.id == 'tray' and trigger.from_state is not none and trigger.from_state.state not in [None, '', 'unknown', 'unavailable'] %}
         {{ trigger.from_state.state | int(-1) }}
       {% else %}
         -1
       {% endif %}
     # For tray trigger: get the new tray composite ID (what we're switching TO)
     new_tray: |-
-      {% if trigger.id == 'tray' and trigger.to_state.state not in [None, '', 'unknown', 'unavailable'] %}
+      {% if trigger.id == 'tray' and trigger.to_state is not none and trigger.to_state.state not in [None, '', 'unknown', 'unavailable'] %}
         {{ trigger.to_state.state | int(-1) }}
       {% else %}
         -1
@@ -314,6 +307,7 @@ function generateAutomationsYaml(
             - condition: template
               value_template: >-
                 {{ trigger.id == 'print_end'
+                   and trigger.from_state is not none
                    and trigger.from_state.state not in ['unavailable', 'unknown', 'idle', 'finished'] }}
           sequence:
             - choose:
@@ -374,11 +368,11 @@ ${trayEntityIds.map(id => `        - ${id}`).join('\n')}
   conditions:
     # Only trigger if the entity is actually available
     - condition: template
-      value_template: "{{ trigger.to_state.state not in ['unavailable', 'unknown'] }}"
+      value_template: "{{ trigger.to_state is not none and trigger.to_state.state not in ['unavailable', 'unknown'] }}"
     # Debounce: only trigger if tray_uuid or name actually changed between old and new state
     - condition: template
       value_template: >-
-        {{ trigger.from_state is none or
+        {{ trigger.from_state is none or trigger.to_state is none or
            trigger.to_state.attributes.get('tray_uuid', '') != trigger.from_state.attributes.get('tray_uuid', '') or
            trigger.to_state.attributes.get('name', '') != trigger.from_state.attributes.get('name', '') }}
   variables:
