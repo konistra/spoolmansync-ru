@@ -5,6 +5,23 @@ All notable changes to SpoolmanSync will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] - 2026-03-22
+
+### Changed
+- Entity discovery now uses HA's WebSocket API with translation_key matching instead of regex-based entity name patterns, making discovery stable across entity renames and HA language changes (#50)
+- Spool-to-tray assignments are now stored by unique_id (stable) instead of entity_id (can change if renamed)
+- External mode automation registration now uses per-printer format matching embedded/addon mode, enabling stale automation detection for all deployment modes
+
+### Added
+- Dashboard warning banner when HA entity IDs have changed since automations were last configured
+- Fallback matching for pre-migration spools that still use entity_id-based assignments
+
+### Fixed
+- Jinja2 null guard for `trigger.from_state`/`trigger.to_state` in generated automations, preventing errors on HA restart
+
+### Removed
+- `entity-patterns.ts` and associated tests (replaced by WebSocket-based discovery)
+
 ## [1.3.6] - 2026-03-16
 
 ### Fixed
