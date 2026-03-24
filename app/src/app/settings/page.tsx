@@ -78,6 +78,10 @@ function SettingsContent() {
   const [enabledFilters, setEnabledFilters] = useState<string[]>([]);
   const [savingFilters, setSavingFilters] = useState(false);
 
+  // QR base URL state
+  const [qrBaseUrl, setQrBaseUrl] = useState('');
+  const [savingQrUrl, setSavingQrUrl] = useState(false);
+
   // Alert configuration states
   const [alertConfig, setAlertConfig] = useState<AlertConfig>({
     enabled: false,
@@ -150,6 +154,9 @@ function SettingsContent() {
       }
       if (data.spoolman) {
         setSpoolmanUrl(data.spoolman.url);
+      }
+      if (data.qrBaseUrl !== undefined) {
+        setQrBaseUrl(data.qrBaseUrl);
       }
     } catch {
       toast.error('Failed to load settings');
@@ -1162,6 +1169,55 @@ function SettingsContent() {
               </Card>
             </>
           )}
+
+          {/* QR Code Base URL */}
+          <Card>
+            <CardHeader>
+              <CardTitle>QR Code / NFC URL</CardTitle>
+              <CardDescription>
+                Override the base URL used in generated QR code labels and NFC tags.
+                Leave empty to use the current browser URL automatically.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="space-y-2">
+                <Label htmlFor="qrBaseUrl">Base URL</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="qrBaseUrl"
+                    value={qrBaseUrl}
+                    onChange={(e) => setQrBaseUrl(e.target.value)}
+                    placeholder="e.g., http://192.168.1.100:3000"
+                  />
+                  <Button
+                    onClick={async () => {
+                      setSavingQrUrl(true);
+                      try {
+                        const res = await fetch('/api/settings', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ type: 'qr_base_url', url: qrBaseUrl }),
+                        });
+                        if (!res.ok) throw new Error();
+                        toast.success(qrBaseUrl.trim() ? 'QR base URL saved' : 'QR base URL cleared');
+                      } catch {
+                        toast.error('Failed to save QR base URL');
+                      } finally {
+                        setSavingQrUrl(false);
+                      }
+                    }}
+                    disabled={savingQrUrl}
+                  >
+                    {savingQrUrl ? 'Saving...' : 'Save'}
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Useful when accessing SpoolmanSync through a reverse proxy or custom domain.
+                  QR codes will link to this URL instead of the browser address bar URL.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
 
         </div>
 

@@ -104,6 +104,7 @@ function sortSpools(spools: Spool[], sortBy: SortBy): Spool[] {
 interface QRCodeGeneratorProps {
   spools: Spool[];
   directAccessPort?: number;
+  qrBaseUrl?: string;
 }
 
 interface FilterField {
@@ -132,7 +133,7 @@ function getSpoolFieldValue(spool: Spool, fieldKey: string): string | null {
   }
 }
 
-export function QRCodeGenerator({ spools, directAccessPort }: QRCodeGeneratorProps) {
+export function QRCodeGenerator({ spools, directAccessPort, qrBaseUrl }: QRCodeGeneratorProps) {
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [searchValue, setSearchValue] = useState('');
   const [filters, setFilters] = useState<Record<string, string | null>>({});
@@ -202,8 +203,8 @@ export function QRCodeGenerator({ spools, directAccessPort }: QRCodeGeneratorPro
   }, [spools, selectedIds]);
 
   const labelItems = useMemo(() => {
-    return buildLabelItems(selectedSpools, config, directAccessPort);
-  }, [selectedSpools, config, directAccessPort]);
+    return buildLabelItems(selectedSpools, config, directAccessPort, qrBaseUrl);
+  }, [selectedSpools, config, directAccessPort, qrBaseUrl]);
 
   const pages = useMemo(() => {
     return paginateItems(labelItems, config);

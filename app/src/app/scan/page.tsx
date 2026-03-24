@@ -21,6 +21,7 @@ function ScanPageContent() {
   const [manualBarcode, setManualBarcode] = useState('');
   const [spoolsLoading, setSpoolsLoading] = useState(true);
   const [directAccessPort, setDirectAccessPort] = useState<number | undefined>(undefined);
+  const [qrBaseUrl, setQrBaseUrl] = useState<string | undefined>(undefined);
 
   const handleScan = useCallback(async (scannedData: string) => {
     setLoading(true);
@@ -110,6 +111,9 @@ function ScanPageContent() {
         if (data.directAccessPort) {
           setDirectAccessPort(data.directAccessPort);
         }
+        if (data.qrBaseUrl) {
+          setQrBaseUrl(data.qrBaseUrl);
+        }
       })
       .catch(() => {});
   }, []);
@@ -193,7 +197,7 @@ function ScanPageContent() {
               <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
             </div>
           ) : allSpools.length > 0 ? (
-            <QRCodeGenerator spools={allSpools} directAccessPort={directAccessPort} />
+            <QRCodeGenerator spools={allSpools} directAccessPort={directAccessPort} qrBaseUrl={qrBaseUrl} />
           ) : (
             <p className="text-sm text-muted-foreground text-center py-4">
               No spools found. Add spools to Spoolman to generate QR labels.
@@ -216,7 +220,7 @@ function ScanPageContent() {
               <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
             </div>
           ) : allSpools.length > 0 ? (
-            <NFCWriter spools={allSpools} directAccessPort={directAccessPort} />
+            <NFCWriter spools={allSpools} directAccessPort={directAccessPort} qrBaseUrl={qrBaseUrl} />
           ) : (
             <p className="text-sm text-muted-foreground text-center py-4">
               No spools found. Add spools to Spoolman to write NFC tags.

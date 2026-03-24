@@ -140,11 +140,12 @@ export function buildLabelItems(
   selectedSpools: Spool[],
   config: LabelSheetConfig,
   directAccessPort?: number,
+  qrBaseUrl?: string,
 ): LabelItem[] {
   const items: LabelItem[] = [];
 
   for (const spool of selectedSpools) {
-    const url = buildExternalUrl(`/scan/spool/${spool.id}`, directAccessPort);
+    const url = buildExternalUrl(`/scan/spool/${spool.id}`, directAccessPort, qrBaseUrl);
     for (let i = 0; i < config.sheet.itemCopies; i++) {
       items.push({ spool, url });
     }

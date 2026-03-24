@@ -49,14 +49,20 @@ export function isIngressMode(): boolean {
  *
  * @param path - The path to build the URL for
  * @param directAccessPort - The direct access port (addon mode only, default 3000)
+ * @param qrBaseUrl - Optional user-configured base URL override for QR codes/NFC tags
  */
-export function buildExternalUrl(path: string, directAccessPort: number = 3000): string {
+export function buildExternalUrl(path: string, directAccessPort: number = 3000, qrBaseUrl?: string): string {
   if (typeof window === 'undefined') {
     return path;
   }
 
   // Ensure path starts with /
   const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+
+  // User-configured override takes priority (e.g., for reverse proxy setups)
+  if (qrBaseUrl) {
+    return `${qrBaseUrl}${normalizedPath}`;
+  }
 
   if (isIngressMode()) {
     // In addon mode, use the Next.js server directly on the configured port

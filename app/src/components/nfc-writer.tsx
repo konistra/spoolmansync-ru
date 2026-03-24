@@ -35,6 +35,7 @@ type SortBy = 'id' | 'name' | 'material' | 'vendor';
 interface NFCWriterProps {
   spools: Spool[];
   directAccessPort?: number;
+  qrBaseUrl?: string;
 }
 
 interface FilterField {
@@ -121,7 +122,7 @@ function getSpoolFieldValue(spool: Spool, fieldKey: string): string | null {
   }
 }
 
-export function NFCWriter({ spools, directAccessPort }: NFCWriterProps) {
+export function NFCWriter({ spools, directAccessPort, qrBaseUrl }: NFCWriterProps) {
   const [selectedSpool, setSelectedSpool] = useState<Spool | null>(null);
   const [searchValue, setSearchValue] = useState('');
   const [filters, setFilters] = useState<Record<string, string | null>>({});
@@ -166,7 +167,7 @@ export function NFCWriter({ spools, directAccessPort }: NFCWriterProps) {
   }, [spools, filters, sortBy]);
 
   const nfcUrl = selectedSpool
-    ? buildExternalUrl(`/scan/spool/${selectedSpool.id}`, directAccessPort)
+    ? buildExternalUrl(`/scan/spool/${selectedSpool.id}`, directAccessPort, qrBaseUrl)
     : null;
 
   const handleSpoolSelect = (spool: Spool) => {
@@ -249,7 +250,7 @@ export function NFCWriter({ spools, directAccessPort }: NFCWriterProps) {
 
   // Show unsupported message for non-NFC browsers
   if (!nfcSupported) {
-    const baseUrl = typeof window !== 'undefined' ? buildExternalUrl('/scan/spool/', directAccessPort) : '/scan/spool/';
+    const baseUrl = typeof window !== 'undefined' ? buildExternalUrl('/scan/spool/', directAccessPort, qrBaseUrl) : '/scan/spool/';
 
     return (
       <Alert>
