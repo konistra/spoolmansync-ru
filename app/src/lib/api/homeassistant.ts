@@ -800,14 +800,14 @@ export class HomeAssistantClient {
         );
 
         if (trayEntities.length > 0) {
-          const amsNumber = parseAmsNumber(childDevice, childEntities);
+          const amsNumber = parseAmsNumber(childDevice);
           const humidityEntity = childEntities.find(e =>
             getEffectiveTranslationKey(e) === 'humidity_index'
           );
 
           const ams: HAAMS = {
             entity_id: humidityEntity?.entity_id || trayEntities[0].entity_id,
-            name: amsNumber >= 128 ? 'AMS HT' : `AMS ${amsNumber}`,
+            name: amsNumber >= 128 ? `AMS HT${amsNumber > 128 ? ` ${amsNumber - 127}` : ''}` : `AMS ${amsNumber}`,
             ams_number: amsNumber,
             trays: [],
           };
@@ -1244,37 +1244,25 @@ function pickBestEntity(
 }
 
 /**
- * Determine AMS number from device metadata.
- * Uses device name, model, and entity unique_ids as signals.
+ * Determine AMS number from the device's original name.
+ *
+ * ha-bambulab constructs device names in the format "{Model}_{Serial}_AMS_{N}"
+ * e.g., "H2C_31B8CP620601523_AMS_1", "H2C_31B8CP620601523_AMS_128".
+ * This comes from the `name` field in the WS device registry, which is the
+ * integration-provided original name (stable, not affected by user renames —
+ * user renames go into `name_by_user` instead).
+ *
+ * The device `identifiers` field contains the AMS hardware serial number,
+ * NOT the constructed name, so we can't use that for AMS numbering.
+ *
+ * Regular AMS: indices 1-4 (firmware 0-based, ha-bambulab adds 1)
+ * AMS HT: indices 128-135 (firmware 0x80-0x87, used as-is)
+ * AMS Lite: index 1 (single unit)
  */
-function parseAmsNumber(device: DeviceRegistryEntry, deviceEntities: EntityRegistryEntry[]): number {
+function parseAmsNumber(device: DeviceRegistryEntry): number {
   const name = device.name || '';
-
-  // "AMS HT 2" → 129, "AMS HT" → 128
-  const htMatch = name.match(/AMS\s*HT\s*(\d+)?/i);
-  if (htMatch) return 127 + (htMatch[1] ? parseInt(htMatch[1], 10) : 1);
-
-  // "AMS Lite" → 1
-  if (/AMS\s*Lite/i.test(name)) return 1;
-
-  // "AMS 1" → 1, "AMS 2" → 2
-  const amsMatch = name.match(/AMS\s+(\d+)/i);
-  if (amsMatch) return parseInt(amsMatch[1], 10);
-
-  // Check device model for HT
-  if (device.model && /HT/i.test(device.model)) return 128;
-
-  // Check entity unique_ids for HT markers
-  for (const entity of deviceEntities) {
-    if (/_AMSHT_/i.test(entity.unique_id) || /_AMS_HT_/i.test(entity.unique_id)) {
-      return 128;
-    }
-  }
-
-  // "AMS" alone → 1
-  if (/\bAMS\b/i.test(name)) return 1;
-
-  // Default
+  const match = name.match(/_AMS_(\d+)$/);
+  if (match) return parseInt(match[1], 10);
   return 1;
 }
 
