@@ -195,8 +195,9 @@ export class SpoolmanClient {
   /**
    * Get all spools
    */
-  async getSpools(): Promise<Spool[]> {
-    return this.fetch('/spool');
+  async getSpools(includeArchived = false): Promise<Spool[]> {
+    const params = includeArchived ? '?allow_archived=true' : '';
+    return this.fetch(`/spool${params}`);
   }
 
   /**

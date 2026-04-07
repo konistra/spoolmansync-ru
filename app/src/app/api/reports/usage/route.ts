@@ -129,7 +129,7 @@ export async function GET(request: NextRequest) {
       const spoolmanConnection = await prisma.spoolmanConnection.findFirst();
       if (spoolmanConnection) {
         const client = new SpoolmanClient(spoolmanConnection.url);
-        const spools = await client.getSpools();
+        const spools = await client.getSpools(true); // Include archived spools for historical reports
         spoolLookup = new Map(spools.map(s => [s.id, s]));
       }
     } catch {
