@@ -64,10 +64,11 @@ export default function Dashboard() {
 
           // Only count if filament is loaded but no spool assigned
           if (hasFilament && !tray.assigned_spool) {
-            // Format: "AMS 1 Tray 3" or just "Tray 3" if only one AMS
-            const amsPrefix = printer.ams_units.length > 1 ? `${ams.name} ` : '';
+            // Format: "PrinterName > AMS 1 > Tray 3" for clarity across multiple printers/AMS units
+            const printerPrefix = printers.length > 1 ? `${printer.name} > ` : '';
+            const amsPrefix = printer.ams_units.length > 1 ? `${ams.name} > ` : '';
             trays.push({
-              label: `${amsPrefix}Tray ${tray.tray_number}`,
+              label: `${printerPrefix}${amsPrefix}Tray ${tray.tray_number}`,
               name: tray.name,
               material: tray.material,
               color: tray.color,
