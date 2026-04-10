@@ -40,6 +40,8 @@ interface ConfigFlowResult {
   reason?: string; // Abort reason when type is 'abort'
 }
 
+type PrinterBrand = 'bambu_lab' | 'creality';
+
 interface AddPrinterDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -49,7 +51,8 @@ interface AddPrinterDialogProps {
 type ConnectionMode = 'cloud' | 'lan' | null;
 
 export function AddPrinterDialog({ open, onOpenChange, onSuccess }: AddPrinterDialogProps) {
-  const [step, setStep] = useState<'select' | 'flow'>('select');
+  const [step, setStep] = useState<'brand' | 'select' | 'flow'>('brand');
+  const [selectedBrand, setSelectedBrand] = useState<PrinterBrand | null>(null);
   const [connectionMode, setConnectionMode] = useState<ConnectionMode>(null);
   const [flowState, setFlowState] = useState<ConfigFlowResult | null>(null);
   const [loading, setLoading] = useState(false);
@@ -91,7 +94,8 @@ export function AddPrinterDialog({ open, onOpenChange, onSuccess }: AddPrinterDi
   };
 
   const resetDialog = () => {
-    setStep('select');
+    setStep('brand');
+    setSelectedBrand(null);
     setConnectionMode(null);
     setFlowState(null);
     setFormData({});
@@ -129,7 +133,19 @@ export function AddPrinterDialog({ open, onOpenChange, onSuccess }: AddPrinterDi
     return defaults;
   };
 
-  const startFlow = async (mode: ConnectionMode) => {
+  const handleBrandSelect = (brand: PrinterBrand) => {
+    setSelectedBrand(brand);
+    if (brand === 'creality') {
+      // Creality is local-only (mDNS/IP), skip cloud/LAN choice
+      startFlow(null, brand);
+    } else {
+      setStep('select');
+    }
+  };
+
+  const startFlow = async (mode: ConnectionMode, brand?: PrinterBrand) => {
+    const targetBrand = brand || selectedBrand || 'bambu_lab';
+    const domain = targetBrand === 'creality' ? 'ha_creality_ws' : 'bambu_lab';
     setConnectionMode(mode);
     setLoading(true);
 
@@ -138,7 +154,7 @@ export function AddPrinterDialog({ open, onOpenChange, onSuccess }: AddPrinterDi
       const res = await fetch('/api/printers/setup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'start' }),
+        body: JSON.stringify({ action: 'start', domain }),
       });
 
       if (!res.ok) {
@@ -316,14 +332,14 @@ export function AddPrinterDialog({ open, onOpenChange, onSuccess }: AddPrinterDi
 
       // Handle different result types
       if (result.type === 'create_entry') {
-        toast.success(`Printer "${result.title || 'Bambu Lab'}" added successfully!`);
+        toast.success(`Printer "${result.title || 'Printer'}" added successfully!`);
         onSuccess();
         // Don't call handleClose() - it would try to abort the completed flow
         resetDialog();
         onOpenChange(false);
       } else if (result.type === 'abort') {
         // Show helpful error message based on abort reason
-        const abortMessage = getAbortMessage(result.reason, connectionMode);
+        const abortMessage = getAbortMessage(result.reason, connectionMode, selectedBrand);
         toast.error(abortMessage.title, {
           description: abortMessage.description,
           duration: 10000, // Show for longer since it contains troubleshooting info
@@ -641,17 +657,48 @@ export function AddPrinterDialog({ open, onOpenChange, onSuccess }: AddPrinterDi
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>
-            {step === 'select' ? 'Add Bambu Lab Printer' : getStepTitle(flowState?.step_id)}
+            {step === 'brand'
+              ? 'Add Printer'
+              : step === 'select'
+                ? 'Add Bambu Lab Printer'
+                : getStepTitle(flowState?.step_id, selectedBrand)}
           </DialogTitle>
           <DialogDescription>
-            {step === 'select'
-              ? 'Choose how to connect your printer'
-              : getStepDescription(flowState?.step_id, connectionMode)}
+            {step === 'brand'
+              ? 'Select your printer brand'
+              : step === 'select'
+                ? 'Choose how to connect your printer'
+                : getStepDescription(flowState?.step_id, connectionMode, selectedBrand)}
           </DialogDescription>
         </DialogHeader>
 
         <div className="py-4">
-          {step === 'select' ? (
+          {step === 'brand' ? (
+            <div className="space-y-3 px-4">
+              <Button
+                variant="outline"
+                className="w-full h-auto py-4 flex flex-col items-start gap-1"
+                onClick={() => handleBrandSelect('bambu_lab')}
+                disabled={loading}
+              >
+                <span className="font-medium">Bambu Lab</span>
+                <span className="text-xs text-muted-foreground font-normal">
+                  X1C, P1S, A1, H2D and other Bambu Lab printers
+                </span>
+              </Button>
+              <Button
+                variant="outline"
+                className="w-full h-auto py-4 flex flex-col items-start gap-1"
+                onClick={() => handleBrandSelect('creality')}
+                disabled={loading}
+              >
+                <span className="font-medium">Creality</span>
+                <span className="text-xs text-muted-foreground font-normal">
+                  K1, K2, Ender 3 V3 and other Creality printers
+                </span>
+              </Button>
+            </div>
+          ) : step === 'select' ? (
             <div className="space-y-3 px-4">
               <Button
                 variant="outline"
@@ -720,9 +767,9 @@ export function AddPrinterDialog({ open, onOpenChange, onSuccess }: AddPrinterDi
           )}
         </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={handleClose} disabled={loading}>
-            Cancel
+        <DialogFooter className={step === 'brand' ? 'sm:justify-center' : ''}>
+          <Button variant="outline" onClick={step === 'brand' ? handleClose : step === 'select' ? () => { setStep('brand'); setSelectedBrand(null); } : handleClose} disabled={loading}>
+            {step === 'select' ? 'Back' : 'Cancel'}
           </Button>
           {step === 'flow' && flowState?.type === 'form' && (
             <Button type="submit" form="printer-setup-form" disabled={loading}>
@@ -792,7 +839,14 @@ function getPlaceholder(fieldName: string): string {
   return placeholders[fieldName] || '';
 }
 
-function getStepTitle(stepId?: string): string {
+function getStepTitle(stepId?: string, brand?: PrinterBrand | null): string {
+  if (brand === 'creality') {
+    const titles: Record<string, string> = {
+      user: 'Creality Printer Setup',
+      confirm: 'Confirm Printer',
+    };
+    return titles[stepId || ''] || 'Creality Printer Setup';
+  }
   const titles: Record<string, string> = {
     cloud: 'Sign in to Bambu Lab',
     lan: 'LAN Connection',
@@ -802,7 +856,10 @@ function getStepTitle(stepId?: string): string {
   return titles[stepId || ''] || 'Printer Setup';
 }
 
-function getStepDescription(stepId?: string, mode?: ConnectionMode): string {
+function getStepDescription(stepId?: string, mode?: ConnectionMode, brand?: PrinterBrand | null): string {
+  if (brand === 'creality') {
+    return 'Enter your printer\'s IP address or hostname. Make sure ha_creality_ws is installed in Home Assistant.';
+  }
   if (mode === 'cloud') {
     if (stepId === 'user' || stepId === 'Bambu') {
       return 'Your credentials are securely stored in Home Assistant and never leave your local network';
@@ -821,8 +878,8 @@ function getStepDescription(stepId?: string, mode?: ConnectionMode): string {
   return 'Configure your printer connection';
 }
 
-function getAbortMessage(reason?: string, mode?: ConnectionMode): { title: string; description: string } {
-  // Common abort reasons from ha-bambulab integration
+function getAbortMessage(reason?: string, mode?: ConnectionMode, brand?: PrinterBrand | null): { title: string; description: string } {
+  // Common abort reasons from printer integrations
   const messages: Record<string, { title: string; description: string }> = {
     // No printers found in Bambu Cloud account
     'no_printers': {

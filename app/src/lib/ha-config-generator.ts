@@ -2,9 +2,9 @@
  * Home Assistant Configuration Generator for SpoolmanSync
  *
  * Generates automations.yaml and configuration.yaml additions
- * for automatic spool tracking with Bambu Lab printers.
+ * for automatic spool tracking with Bambu Lab and Creality printers.
  *
- * Supports multiple AMS units per printer.
+ * Supports multiple AMS/CFS units per printer.
  */
 
 import { HAPrinter } from './api/homeassistant';
@@ -30,6 +30,7 @@ interface TrayInfo {
  * Per-printer config collected during discovery
  */
 interface PrinterConfig {
+  brand: 'bambu_lab' | 'creality';
   prefix: string;
   name: string;
   allTrays: TrayInfo[];
@@ -61,61 +62,64 @@ export function generateHAConfig(
   for (const printer of printers) {
     const prefix = printer.prefix;
 
-    // Check for missing entities
-    const missingEntities: string[] = [];
-    if (!printer.current_stage_entity) {
-      missingEntities.push('current_stage');
-      console.warn(`[SpoolmanSync] Could not find current_stage entity for printer ${prefix}. Automation triggers may not work.`);
-    }
-    if (!printer.print_weight_entity) {
-      missingEntities.push('print_weight');
-      console.warn(`[SpoolmanSync] Could not find print_weight entity for printer ${prefix}. Filament usage tracking may not work.`);
-    }
-    if (!printer.print_progress_entity) {
-      missingEntities.push('print_progress');
-      console.warn(`[SpoolmanSync] Could not find print_progress entity for printer ${prefix}. Filament usage tracking may not work.`);
-    }
-    if (missingEntities.length > 0) {
-      console.warn(`[SpoolmanSync] Missing entities for ${prefix}: ${missingEntities.join(', ')}. Please report at https://github.com/gibz104/SpoolmanSync/issues`);
-    }
-
-    const discoveredEntities: LocalizedEntities = {
-      current_stage: printer.current_stage_entity || '',
-      print_weight: printer.print_weight_entity || '',
-      print_progress: printer.print_progress_entity || '',
-      external_spools: printer.external_spools.map(es => es.entity_id),
-    };
-
-    // Collect all trays from all AMS units
-    const allTrays: TrayInfo[] = [];
-
-    // External spools: compositeId 0, 1, 2, ... (backward compatible — first is 0)
-    for (let i = 0; i < printer.external_spools.length; i++) {
-      allTrays.push({
-        entityId: printer.external_spools[i].entity_id,
-        amsNumber: 0,
-        trayNumber: 0,
-        compositeId: i,
-      });
-    }
-
-    for (const ams of printer.ams_units) {
-      const amsNumber = ams.ams_number;
-      for (const tray of ams.trays) {
-        allTrays.push({
-          entityId: tray.entity_id,
-          amsNumber,
-          trayNumber: tray.tray_number,
-          compositeId: amsNumber * 10 + tray.tray_number,
-        });
+    if (printer.brand === 'creality') {
+      // Creality printer — different entity structure
+      const missingEntities: string[] = [];
+      if (!printer.used_material_entity) {
+        missingEntities.push('used_material_length');
+        console.warn(`[SpoolmanSync] Could not find used_material_length entity for Creality printer ${prefix}. Filament usage tracking may not work.`);
       }
+      if (!printer.print_progress_entity) {
+        missingEntities.push('print_progress');
+        console.warn(`[SpoolmanSync] Could not find print_progress entity for Creality printer ${prefix}.`);
+      }
+      if (missingEntities.length > 0) {
+        console.warn(`[SpoolmanSync] Missing entities for ${prefix}: ${missingEntities.join(', ')}. Please report at https://github.com/gibz104/SpoolmanSync/issues`);
+      }
+
+      const discoveredEntities: LocalizedEntities = {
+        current_stage: printer.entity_id, // Creality uses print_status for completion
+        print_weight: '', // Creality doesn't have print_weight
+        print_progress: printer.print_progress_entity || '',
+        used_material_length: printer.used_material_entity || '',
+        external_spools: printer.external_spools.map(es => es.entity_id),
+      };
+
+      const allTrays = collectTrays(printer);
+      totalTrayCount += allTrays.length;
+      printerConfigs.push({ brand: 'creality', prefix, name: printer.name, allTrays, discoveredEntities });
+      automationsYamlParts.push(generateCrealityAutomationsYaml(prefix, allTrays, webhookUrl, discoveredEntities));
+    } else {
+      // Bambu Lab printer — original logic
+      const missingEntities: string[] = [];
+      if (!printer.current_stage_entity) {
+        missingEntities.push('current_stage');
+        console.warn(`[SpoolmanSync] Could not find current_stage entity for printer ${prefix}. Automation triggers may not work.`);
+      }
+      if (!printer.print_weight_entity) {
+        missingEntities.push('print_weight');
+        console.warn(`[SpoolmanSync] Could not find print_weight entity for printer ${prefix}. Filament usage tracking may not work.`);
+      }
+      if (!printer.print_progress_entity) {
+        missingEntities.push('print_progress');
+        console.warn(`[SpoolmanSync] Could not find print_progress entity for printer ${prefix}. Filament usage tracking may not work.`);
+      }
+      if (missingEntities.length > 0) {
+        console.warn(`[SpoolmanSync] Missing entities for ${prefix}: ${missingEntities.join(', ')}. Please report at https://github.com/gibz104/SpoolmanSync/issues`);
+      }
+
+      const discoveredEntities: LocalizedEntities = {
+        current_stage: printer.current_stage_entity || '',
+        print_weight: printer.print_weight_entity || '',
+        print_progress: printer.print_progress_entity || '',
+        external_spools: printer.external_spools.map(es => es.entity_id),
+      };
+
+      const allTrays = collectTrays(printer);
+      totalTrayCount += allTrays.length;
+      printerConfigs.push({ brand: 'bambu_lab', prefix, name: printer.name, allTrays, discoveredEntities });
+      automationsYamlParts.push(generateAutomationsYaml(prefix, allTrays, webhookUrl, discoveredEntities));
     }
-
-    totalTrayCount += allTrays.length;
-    printerConfigs.push({ prefix, name: printer.name, allTrays, discoveredEntities });
-
-    // Generate automations for this printer
-    automationsYamlParts.push(generateAutomationsYaml(prefix, allTrays, webhookUrl, discoveredEntities));
   }
 
   const automationsYaml = automationsYamlParts.join('\n');
@@ -147,12 +151,44 @@ function buildTrayEntityLookup(allTrays: TrayInfo[]): string {
 }
 
 /**
- * Localized entity names type
+ * Collect all trays from a printer's AMS/CFS units and external spools
+ */
+function collectTrays(printer: HAPrinter): TrayInfo[] {
+  const allTrays: TrayInfo[] = [];
+
+  // External spools: compositeId 0, 1, 2, ... (backward compatible — first is 0)
+  for (let i = 0; i < printer.external_spools.length; i++) {
+    allTrays.push({
+      entityId: printer.external_spools[i].entity_id,
+      amsNumber: 0,
+      trayNumber: 0,
+      compositeId: i,
+    });
+  }
+
+  for (const ams of printer.ams_units) {
+    const amsNumber = ams.ams_number;
+    for (const tray of ams.trays) {
+      allTrays.push({
+        entityId: tray.entity_id,
+        amsNumber,
+        trayNumber: tray.tray_number,
+        compositeId: amsNumber * 10 + tray.tray_number,
+      });
+    }
+  }
+
+  return allTrays;
+}
+
+/**
+ * Entity references for automation generation
  */
 interface LocalizedEntities {
   current_stage: string;
   print_weight: string;
   print_progress: string;
+  used_material_length?: string;  // Creality only (cm)
   external_spools: string[];
 }
 
@@ -402,42 +438,275 @@ ${trayEntityIds.map(id => `        - ${id}`).join('\n')}
 }
 
 /**
- * Build Jinja2 template to detect active tray from all AMS units
- * Returns composite ID: 0 = external, 11-14 = AMS1, 21-24 = AMS2, etc.
+ * Generate automations.yaml content for Creality printers (ha_creality_ws)
  *
- * External spools use the 'active' attribute same as AMS trays
- * (requires ha-bambulab 2.0.29+).
+ * Key differences from Bambu:
+ * - Uses print_status → completed instead of current_stage → finished
+ * - Uses used_material_length (cm) instead of print_weight * progress
+ * - Uses 'selected' attribute (0/1) instead of 'active' for tray detection
+ * - CFS slot attributes: name, color_hex, type, rfid (vs Bambu's name, color, type, tray_uuid)
  */
-function buildActiveTrayDetection(allTrays: TrayInfo[]): string {
+function generateCrealityAutomationsYaml(
+  prefix: string,
+  allTrays: TrayInfo[],
+  webhookUrl: string,
+  entities: LocalizedEntities,
+): string {
+  const trayEntityIds = allTrays.map(t => t.entityId);
+  const trayEntityLookup = buildTrayEntityLookup(allTrays);
+
+  return `# =============================================================================
+# SpoolmanSync Automation: Track Spool Usage (Creality)
+#
+# Auto-generated by SpoolmanSync for Creality printer: ${prefix}
+# Supports ${allTrays.length} slot(s) across ${new Set(allTrays.map(t => t.amsNumber)).size} CFS box(es)
+#
+# Slot encoding: composite_id = box_number * 10 + slot_number
+# - 0 = external spool
+# - 11-14 = CFS Box 1 slots 1-4
+# - 21-24 = CFS Box 2 slots 1-4
+# - etc.
+# =============================================================================
+- id: 'spoolmansync_update_spool_${prefix}'
+  alias: SpoolmanSync - Update Spool (${prefix})
+  description: Track spool usage and sync with Spoolman (Creality)
+  triggers:
+    - entity_id: sensor.spoolmansync_${prefix}_active_tray
+      id: tray
+      trigger: state
+    - entity_id: ${entities.current_stage}
+      to:
+        - completed
+        - idle
+      id: print_end
+      trigger: state
+  variables:
+    old_tray: |-
+      {% if trigger.id == 'tray' and trigger.from_state is not none and trigger.from_state.state not in [None, '', 'unknown', 'unavailable'] %}
+        {{ trigger.from_state.state | int(-1) }}
+      {% else %}
+        -1
+      {% endif %}
+    new_tray: |-
+      {% if trigger.id == 'tray' and trigger.to_state is not none and trigger.to_state.state not in [None, '', 'unknown', 'unavailable'] %}
+        {{ trigger.to_state.state | int(-1) }}
+      {% else %}
+        -1
+      {% endif %}
+    tray_composite: |-
+      {% if trigger.id == 'print_end' %}
+        {{ states('input_number.spoolmansync_${prefix}_last_tray') | int(-1) }}
+      {% else %}
+        {{ old_tray }}
+      {% endif %}
+    tray_sensor: "${trayEntityLookup}"
+    tray_usage_cm: "{{ states('sensor.spoolmansync_${prefix}_filament_usage_meter') | float(0) | round(2) }}"
+    tray_uuid: "{{ state_attr(tray_sensor, 'rfid') | default('') }}"
+    material: "{{ state_attr(tray_sensor, 'type') | default('') }}"
+    name: "{{ state_attr(tray_sensor, 'name') | default('') }}"
+    color: "{{ state_attr(tray_sensor, 'color_hex') | default('') }}"
+  actions:
+    - choose:
+        # =====================================================================
+        # TRAY CHANGE - Log old tray usage (if valid), ALWAYS update helper
+        # =====================================================================
+        - conditions:
+            - condition: template
+              value_template: "{{ trigger.id == 'tray' }}"
+          sequence:
+            - choose:
+                - conditions:
+                    - condition: template
+                      value_template: "{{ old_tray >= 0 and tray_usage_cm >= 0.01 and tray_sensor != '' }}"
+                  sequence:
+                    - action: system_log.write
+                      data:
+                        message: >-
+                          SPOOLMANSYNC TRAY CHANGE (Creality) | Old tray {{ old_tray }} -> New tray {{ new_tray }} |
+                          Sensor: {{ tray_sensor }} |
+                          Spool: {{ name }} ({{ material }}) |
+                          Length used: {{ tray_usage_cm }}cm |
+                          RFID: {{ tray_uuid }}
+                        level: info
+                    - action: rest_command.spoolmansync_update_spool
+                      data:
+                        filament_name: "{{ name }}"
+                        filament_material: "{{ material }}"
+                        filament_tray_uuid: "{{ tray_uuid }}"
+                        filament_used_length: "{{ tray_usage_cm }}"
+                        filament_color: "{{ color }}"
+                        filament_active_tray_id: "{{ tray_sensor }}"
+                    - action: utility_meter.calibrate
+                      target:
+                        entity_id: sensor.spoolmansync_${prefix}_filament_usage_meter
+                      data:
+                        value: "0"
+              default:
+                - action: system_log.write
+                  data:
+                    message: >-
+                      SPOOLMANSYNC TRAY CHANGE (Creality, no usage logged) | Old: {{ old_tray }} -> New: {{ new_tray }} |
+                      Length: {{ tray_usage_cm }}cm |
+                      Reason: {{ 'old_tray invalid' if old_tray < 0 else 'no length to log' }}
+                    level: debug
+                - action: utility_meter.calibrate
+                  target:
+                    entity_id: sensor.spoolmansync_${prefix}_filament_usage_meter
+                  data:
+                    value: "0"
+            - condition: template
+              value_template: "{{ new_tray >= 0 }}"
+            - action: input_number.set_value
+              target:
+                entity_id: input_number.spoolmansync_${prefix}_last_tray
+              data:
+                value: "{{ new_tray }}"
+            - action: system_log.write
+              data:
+                message: "SPOOLMANSYNC HELPER UPDATED | input_number.spoolmansync_${prefix}_last_tray -> {{ new_tray }}"
+                level: info
+
+        # =====================================================================
+        # PRINT END - Log final tray usage from helper
+        # =====================================================================
+        - conditions:
+            - condition: template
+              value_template: >-
+                {{ trigger.id == 'print_end'
+                   and trigger.from_state is not none
+                   and trigger.from_state.state not in ['unavailable', 'unknown', 'idle', 'completed', 'off'] }}
+          sequence:
+            - choose:
+                - conditions:
+                    - condition: template
+                      value_template: "{{ tray_composite >= 0 and tray_usage_cm >= 0.01 and tray_sensor != '' }}"
+                  sequence:
+                    - action: system_log.write
+                      data:
+                        message: >-
+                          SPOOLMANSYNC PRINT END (Creality) | Tray {{ tray_composite }} |
+                          Sensor: {{ tray_sensor }} |
+                          Spool: {{ name }} ({{ material }}) |
+                          Length used: {{ tray_usage_cm }}cm |
+                          RFID: {{ tray_uuid }}
+                        level: info
+                    - action: rest_command.spoolmansync_update_spool
+                      data:
+                        filament_name: "{{ name }}"
+                        filament_material: "{{ material }}"
+                        filament_tray_uuid: "{{ tray_uuid }}"
+                        filament_used_length: "{{ tray_usage_cm }}"
+                        filament_color: "{{ color }}"
+                        filament_active_tray_id: "{{ tray_sensor }}"
+              default:
+                - action: system_log.write
+                  data:
+                    message: >-
+                      SPOOLMANSYNC PRINT END (Creality, skipped) | Tray: {{ tray_composite }} | Length: {{ tray_usage_cm }}cm |
+                      Reason: {{ 'no tray in helper' if tray_composite < 0 else 'no length' }}
+                    level: warning
+            - action: utility_meter.calibrate
+              target:
+                entity_id: sensor.spoolmansync_${prefix}_filament_usage_meter
+              data:
+                value: "0"
+            - action: system_log.write
+              data:
+                message: "SPOOLMANSYNC METER RESET after print end (Creality)"
+                level: info
+  mode: single
+
+# =============================================================================
+# SpoolmanSync Automation: Tray Change Detection (Creality)
+#
+# Detects physical spool changes (insert/remove) in CFS slots.
+# Triggers when any CFS slot sensor changes state.
+# =============================================================================
+- id: 'spoolmansync_tray_change_${prefix}'
+  alias: SpoolmanSync - Tray Change (${prefix})
+  description: Detect physical spool changes in CFS and auto-assign/unassign in Spoolman
+  triggers:
+    - entity_id:
+${trayEntityIds.map(id => `        - ${id}`).join('\n')}
+      trigger: state
+  conditions:
+    - condition: template
+      value_template: "{{ trigger.to_state is not none and trigger.to_state.state not in ['unavailable', 'unknown'] }}"
+    # Debounce: only trigger if rfid or name actually changed
+    - condition: template
+      value_template: >-
+        {{ trigger.from_state is none or trigger.to_state is none or
+           trigger.to_state.attributes.get('rfid', '') != trigger.from_state.attributes.get('rfid', '') or
+           trigger.to_state.attributes.get('name', '') != trigger.from_state.attributes.get('name', '') }}
+  variables:
+    tray_entity_id: "{{ trigger.entity_id }}"
+    tray_uuid: "{{ state_attr(trigger.entity_id, 'rfid') | default('') }}"
+    name: "{{ state_attr(trigger.entity_id, 'name') | default('') }}"
+    material: "{{ state_attr(trigger.entity_id, 'type') | default('') }}"
+    color: "{{ state_attr(trigger.entity_id, 'color_hex') | default('') }}"
+  actions:
+    - action: system_log.write
+      data:
+        message: >-
+          SPOOLMANSYNC TRAY CHANGE DETECTED (Creality) | {{ tray_entity_id }} |
+          Name: {{ name }} | Material: {{ material }} |
+          RFID: {{ tray_uuid }} | Color: {{ color }}
+        level: info
+    - action: rest_command.spoolmansync_tray_change
+      data:
+        tray_entity_id: "{{ tray_entity_id }}"
+        tray_uuid: "{{ tray_uuid }}"
+        name: "{{ name }}"
+        material: "{{ material }}"
+        color: "{{ color }}"
+  mode: queued
+  max: 10
+`;
+}
+
+/**
+ * Build Jinja2 template to detect active tray from all AMS/CFS units
+ * Returns composite ID: 0 = external, 11-14 = AMS1/CFS1, 21-24 = AMS2/CFS2, etc.
+ *
+ * For Bambu: uses 'active' attribute (requires ha-bambulab 2.0.29+)
+ * For Creality: uses 'selected' attribute (0/1)
+ */
+function buildActiveTrayDetection(allTrays: TrayInfo[], brand: 'bambu_lab' | 'creality' = 'bambu_lab'): string {
   const checks: string[] = [];
 
   const externalTrays = allTrays.filter(t => t.amsNumber === 0);
   const amsTrays = allTrays.filter(t => t.amsNumber > 0).sort((a, b) => a.compositeId - b.compositeId);
+
+  // Creality uses 'selected' attribute (int 0/1), Bambu uses 'active' (bool)
+  const activeCheck = brand === 'creality'
+    ? `state_attr('%ENTITY%', 'selected') | int(0) == 1`
+    : `state_attr('%ENTITY%', 'active') in [true, 'true', 'True']`;
 
   if (externalTrays.length > 0) {
     checks.push(`
           {# Check external spool(s) #}`);
     for (const ext of externalTrays) {
       checks.push(`
-          {% if state_attr('${ext.entityId}', 'active') in [true, 'true', 'True'] %}
+          {% if ${activeCheck.replace('%ENTITY%', ext.entityId)} %}
             ${ext.compositeId}
           {% endif %}`);
     }
   }
 
-  // Check each AMS tray explicitly using discovered entity IDs
   if (amsTrays.length > 0) {
     const amsNumbers = [...new Set(amsTrays.map(t => t.amsNumber))].sort((a, b) => a - b);
 
     for (const amsNumber of amsNumbers) {
       const traysForAms = amsTrays.filter(t => t.amsNumber === amsNumber);
-      const displayName = amsNumber >= 128 ? 'AMS HT' : `AMS${amsNumber}`;
+      const displayName = brand === 'creality'
+        ? `CFS Box ${amsNumber}`
+        : (amsNumber >= 128 ? 'AMS HT' : `AMS${amsNumber}`);
       checks.push(`
-          {# Check ${displayName} trays #}`);
+          {# Check ${displayName} ${brand === 'creality' ? 'slots' : 'trays'} #}`);
 
       for (const tray of traysForAms) {
         checks.push(`
-          {% if state_attr('${tray.entityId}', 'active') in [true, 'true', 'True'] %}
+          {% if ${activeCheck.replace('%ENTITY%', tray.entityId)} %}
             ${tray.compositeId}
           {% endif %}`);
       }
@@ -477,19 +746,38 @@ function generateConfigurationAdditions(
 
   // Build per-printer template sensor entries (filament usage + active tray)
   const templateSensorEntries = printerConfigs.map(p => {
-    const activeTrayDetection = buildActiveTrayDetection(p.allTrays);
+    const activeTrayDetection = buildActiveTrayDetection(p.allTrays, p.brand);
     const availabilityEntities = p.allTrays.map(t => `'${t.entityId}'`);
 
-    return `      # ${p.prefix}: Calculate filament usage during print
+    // Filament usage sensor differs by brand
+    let filamentUsageSensor: string;
+    if (p.brand === 'creality') {
+      // Creality: used_material_length is a running total in cm
+      filamentUsageSensor = `      # ${p.prefix}: Track filament usage during print (Creality - cm)
+      - name: "SpoolmanSync ${p.prefix} Filament Usage"
+        unique_id: spoolmansync-${p.prefix}-filament-usage
+        unit_of_measurement: "cm"
+        state: >
+          {{ states('${p.discoveredEntities.used_material_length}') | float(0) }}
+        availability: >
+          {{ states('${p.discoveredEntities.used_material_length}') not in ['unknown', 'unavailable'] }}`;
+    } else {
+      // Bambu: calculate from print_weight * progress
+      filamentUsageSensor = `      # ${p.prefix}: Calculate filament usage during print
       - name: "SpoolmanSync ${p.prefix} Filament Usage"
         unique_id: spoolmansync-${p.prefix}-filament-usage
         state: >
           {{ states('${p.discoveredEntities.print_weight}') | float(0) / 100 *
              states('${p.discoveredEntities.print_progress}') | float(0) }}
         availability: >
-          {{ states('${p.discoveredEntities.print_weight}') not in ['unknown', 'unavailable'] }}
+          {{ states('${p.discoveredEntities.print_weight}') not in ['unknown', 'unavailable'] }}`;
+    }
 
-      # ${p.prefix}: Detect active tray from all AMS tray sensors and external spool
+    const unitLabel = p.brand === 'creality' ? 'CFS slot' : 'AMS tray';
+
+    return `${filamentUsageSensor}
+
+      # ${p.prefix}: Detect active ${unitLabel} from all sensors
       - name: "SpoolmanSync ${p.prefix} Active Tray"
         unique_id: spoolmansync-${p.prefix}-active-tray
         state: >${activeTrayDetection}
@@ -533,7 +821,8 @@ rest_command:
         "name": "{{ filament_name }}",
         "material": "{{ filament_material }}",
         "tray_uuid": "{{ filament_tray_uuid }}",
-        "used_weight": {{ filament_used_weight | round(2) }},
+        "used_weight": {{ filament_used_weight | default(0) | round(2) }},
+        "used_length": {{ filament_used_length | default(0) | round(2) }},
         "color": "{{ filament_color }}",
         "active_tray_id": "{{ filament_active_tray_id }}"
       }

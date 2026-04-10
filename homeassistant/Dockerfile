@@ -15,6 +15,14 @@ RUN cd /default_config/custom_components && \
     unzip bambu_lab.zip -d bambu_lab && \
     rm bambu_lab.zip
 
+# Install ha_creality_ws integration (Creality printer support)
+# No pre-built release zip available, so download source and extract custom_components
+RUN cd /tmp && \
+    wget -O ha_creality_ws.tar.gz https://github.com/3dg1luk43/ha_creality_ws/archive/refs/heads/main.tar.gz && \
+    tar xzf ha_creality_ws.tar.gz && \
+    cp -r ha_creality_ws-main/custom_components/ha_creality_ws /default_config/custom_components/ && \
+    rm -rf ha_creality_ws.tar.gz ha_creality_ws-main
+
 # Copy configuration files
 COPY configuration.yaml /default_config/configuration.yaml
 COPY automations.yaml /default_config/automations.yaml

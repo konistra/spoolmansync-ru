@@ -22,12 +22,43 @@ import { checkAndUpdateAlerts } from '@/lib/alerts';
  * }
  */
 
-/** Returns true if tray_uuid is a real Bambu spool serial (not empty, unknown, or all zeros) */
+/** Returns true if tray_uuid/rfid is a real spool identifier (not empty, unknown, or all zeros) */
 function isValidTrayUuid(tray_uuid: string | undefined | null): boolean {
   if (!tray_uuid || tray_uuid === 'unknown' || tray_uuid === '') return false;
   // ha-bambulab reports all zeros for non-Bambu spools without RFID tags
   if (tray_uuid.replace(/0/g, '') === '') return false;
   return true;
+}
+
+/**
+ * Material density lookup (g/cm³) for converting filament length to weight.
+ * Used when Creality printers report usage in cm instead of grams.
+ * Standard filament diameter: 1.75mm
+ */
+const MATERIAL_DENSITY: Record<string, number> = {
+  PLA: 1.24,
+  'PLA+': 1.24,
+  PETG: 1.27,
+  ABS: 1.04,
+  ASA: 1.07,
+  TPU: 1.21,
+  PC: 1.20,
+  PA: 1.14,    // Nylon
+  'PA-CF': 1.35,
+  'PA-GF': 1.36,
+  PVA: 1.23,
+  HIPS: 1.04,
+};
+
+/**
+ * Convert filament length (cm) to weight (grams).
+ * Uses filament diameter of 1.75mm and material-specific density.
+ */
+function lengthToWeight(lengthCm: number, material?: string): number {
+  const radiusCm = 0.0875; // 1.75mm / 2, converted to cm
+  const volumeCm3 = Math.PI * radiusCm * radiusCm * lengthCm;
+  const density = (material && MATERIAL_DENSITY[material.toUpperCase()]) || MATERIAL_DENSITY.PLA;
+  return volumeCm3 * density;
 }
 
 export async function POST(request: NextRequest) {
@@ -71,9 +102,18 @@ export async function POST(request: NextRequest) {
 
     // Handle spool_usage event - deduct filament weight from spool
     if (event === 'spool_usage') {
-      const { used_weight, active_tray_id, tray_uuid } = body;
+      const { used_weight, used_length, active_tray_id, tray_uuid, material } = body;
 
-      if (!used_weight || used_weight <= 0) {
+      // Determine weight to deduct: either directly provided (Bambu) or converted from length (Creality)
+      let weightToDeduct = used_weight;
+      let lengthConverted = false;
+      if ((!weightToDeduct || weightToDeduct <= 0) && used_length && used_length > 0) {
+        weightToDeduct = lengthToWeight(used_length, material);
+        lengthConverted = true;
+        console.log(`Converted ${used_length}cm to ${weightToDeduct.toFixed(2)}g (material: ${material || 'PLA default'})`);
+      }
+
+      if (!weightToDeduct || weightToDeduct <= 0) {
         return NextResponse.json({ status: 'ignored', reason: 'no weight to deduct' });
       }
 
@@ -102,18 +142,29 @@ export async function POST(request: NextRequest) {
         });
       }
 
+      // If we have a matched spool and converted from length, try to use the spool's
+      // actual filament density for a more accurate conversion
+      if (lengthConverted && matchedSpool.filament?.material) {
+        const betterWeight = lengthToWeight(used_length, matchedSpool.filament.material);
+        if (betterWeight !== weightToDeduct) {
+          console.log(`Refined conversion using spool material ${matchedSpool.filament.material}: ${weightToDeduct.toFixed(2)}g -> ${betterWeight.toFixed(2)}g`);
+          weightToDeduct = betterWeight;
+        }
+      }
+
       // Deduct the used weight from the spool
-      await client.useWeight(matchedSpool.id, used_weight);
+      await client.useWeight(matchedSpool.id, weightToDeduct);
 
       // Check low filament alerts (fire-and-forget)
       checkAndUpdateAlerts().catch(err => console.error('Alert check failed:', err));
 
-      console.log(`Deducted ${used_weight}g from spool #${matchedSpool.id} (${matchedSpool.filament.name})`);
+      const deductionNote = lengthConverted ? ` (converted from ${used_length}cm)` : '';
+      console.log(`Deducted ${weightToDeduct.toFixed(2)}g${deductionNote} from spool #${matchedSpool.id} (${matchedSpool.filament.name})`);
 
-      // Store the spool serial number (tray_uuid) if we have a valid one
+      // Store the spool serial/RFID if we have a valid one
       // This enables future auto-matching when the same spool is reinserted
-      // tray_uuid is the Bambu spool serial number, unique per physical spool
-      // (unlike tag_uid which differs per RFID tag - each spool has 2 tags)
+      // For Bambu: tray_uuid is the spool serial (unique per physical spool)
+      // For Creality: rfid is a numeric RFID tag ID
       let tagStored = false;
       if (isValidTrayUuid(tray_uuid)) {
         // Check if this spool already has this serial number stored
@@ -149,8 +200,8 @@ export async function POST(request: NextRequest) {
         type: 'usage',
         spoolId: matchedSpool.id,
         spoolName: matchedSpool.filament.name,
-        deducted: used_weight,
-        newWeight: matchedSpool.remaining_weight - used_weight,
+        deducted: weightToDeduct,
+        newWeight: matchedSpool.remaining_weight - weightToDeduct,
         trayId: active_tray_id,
         timestamp: Date.now(),
       };
@@ -158,10 +209,11 @@ export async function POST(request: NextRequest) {
 
       await createActivityLog({
         type: 'spool_usage',
-        message: `Deducted ${used_weight}g from spool #${matchedSpool.id} (${matchedSpool.filament.name})`,
+        message: `Deducted ${weightToDeduct.toFixed(2)}g${deductionNote} from spool #${matchedSpool.id} (${matchedSpool.filament.name})`,
         details: {
           spoolId: matchedSpool.id,
-          usedWeight: used_weight,
+          usedWeight: weightToDeduct,
+          ...(lengthConverted && { usedLengthCm: used_length }),
           trayId: active_tray_id,
           tagStored,
         },
@@ -170,8 +222,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         status: 'success',
         spoolId: matchedSpool.id,
-        deducted: used_weight,
-        newRemainingWeight: matchedSpool.remaining_weight - used_weight,
+        deducted: weightToDeduct,
+        newRemainingWeight: matchedSpool.remaining_weight - weightToDeduct,
         tagStored,
       });
     }
@@ -186,7 +238,8 @@ export async function POST(request: NextRequest) {
 
       // Check if tray is now empty (no filament, or explicitly "Empty")
       // ha-bambulab reports name="Empty" when tray has no filament
-      const trayIsEmpty = !name || name.toLowerCase() === 'empty' || name === '';
+      // ha_creality_ws reports empty string or no name when slot is empty
+      const trayIsEmpty = !name || name.toLowerCase() === 'empty' || name === '' || name === 'unavailable';
 
       if (trayIsEmpty) {
         // Auto-unassign any spool currently assigned to this tray

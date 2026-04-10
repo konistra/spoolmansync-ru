@@ -2,9 +2,9 @@
  * Home Assistant API client
  * Supports both OAuth2 (external) and trusted networks (embedded) authentication
  *
- * Entity discovery uses HA's WebSocket API to fetch the entity/device registries
- * and match by translation_key (stable metadata set by ha-bambulab regardless of
- * entity renames or HA language).
+ * Entity discovery uses HA's WebSocket API to fetch the entity/device registries.
+ * Bambu Lab printers are matched by translation_key (stable metadata set by ha-bambulab).
+ * Creality printers are matched by entity_id patterns from ha_creality_ws.
  */
 
 import prisma from '@/lib/db';
@@ -28,7 +28,10 @@ export interface HAAutomation {
   mode?: string;
 }
 
+export type PrinterBrand = 'bambu_lab' | 'creality';
+
 export interface HAPrinter {
+  brand: PrinterBrand;
   entity_id: string;
   name: string;
   state: string;
@@ -38,6 +41,7 @@ export interface HAPrinter {
   current_stage_entity?: string;
   print_weight_entity?: string;
   print_progress_entity?: string;
+  used_material_entity?: string;  // Creality's used_material_length sensor (cm)
 }
 
 export interface HAAMS {
@@ -875,6 +879,7 @@ export class HomeAssistantClient {
       };
 
       const printer: HAPrinter = {
+        brand: 'bambu_lab',
         entity_id: bestPrinterEntity.entity_id,
         name,
         state: printerState?.state || 'unknown',
@@ -889,18 +894,179 @@ export class HomeAssistantClient {
       printers.push(printer);
     }
 
+    // Discover Creality printers from ha_creality_ws integration
+    const crealityPrinters = this.discoverCrealityPrinters(entities, devices, stateMap);
+    printers.push(...crealityPrinters);
+
     return printers;
   }
 
   /**
-   * Get a mapping of entity_id → unique_id for all bambu_lab entities.
+   * Discover Creality printers from ha_creality_ws integration.
+   * Uses entity_id pattern matching (ha_creality_ws doesn't use translation_key).
+   *
+   * Entity patterns:
+   *   Print status:     sensor.<name>_print_status
+   *   CFS slot:         sensor.<name>_cfs_box_<N>_slot_<M>_filament/color/percent
+   *   CFS external:     sensor.<name>_cfs_external_filament/color/percent
+   *   Used material:    sensor.<name>_used_material_length
+   *   Print progress:   sensor.<name>_print_progress
+   */
+  private discoverCrealityPrinters(
+    entities: EntityRegistryEntry[],
+    devices: DeviceRegistryEntry[],
+    stateMap: Map<string, HAState>,
+  ): HAPrinter[] {
+    const crealityEntities = entities.filter(e => e.platform === 'ha_creality_ws' && !e.disabled_by);
+    if (crealityEntities.length === 0) return [];
+
+    // Build device → entities map
+    const deviceEntityMap = new Map<string, EntityRegistryEntry[]>();
+    for (const entity of crealityEntities) {
+      if (!entity.device_id) continue;
+      if (!deviceEntityMap.has(entity.device_id)) {
+        deviceEntityMap.set(entity.device_id, []);
+      }
+      deviceEntityMap.get(entity.device_id)!.push(entity);
+    }
+
+    // Find printer devices by print_status entity
+    const printerEntities = crealityEntities.filter(e =>
+      e.entity_id.endsWith('_print_status')
+    );
+
+    const seenDevices = new Set<string>();
+    const printers: HAPrinter[] = [];
+
+    for (const printerEntity of printerEntities) {
+      if (!printerEntity.device_id || seenDevices.has(printerEntity.device_id)) continue;
+      seenDevices.add(printerEntity.device_id);
+
+      const printerState = stateMap.get(printerEntity.entity_id);
+      const printerDevice = devices.find(d => d.id === printerEntity.device_id);
+
+      // Derive prefix from entity_id: remove "sensor." prefix and "_print_status" suffix
+      const prefix = printerEntity.entity_id
+        .replace(/^sensor\./, '')
+        .replace(/_print_status$/, '');
+
+      const name = printerDevice?.name || prefix;
+
+      // Gather all entities for this printer — include device entities and child device entities
+      const allPrinterEntities: EntityRegistryEntry[] = [
+        ...(deviceEntityMap.get(printerEntity.device_id) || []),
+      ];
+
+      // Also check child devices (CFS boxes may be child devices)
+      const childDevices = devices.filter(d => d.via_device_id === printerEntity.device_id);
+      for (const childDevice of childDevices) {
+        allPrinterEntities.push(...(deviceEntityMap.get(childDevice.id) || []));
+      }
+
+      // Find CFS slot entities by pattern matching
+      const cfsSlotPattern = /cfs_box_(\d+)_slot_(\d+)_filament$/;
+      const slotFilamentEntities = allPrinterEntities.filter(e =>
+        cfsSlotPattern.test(e.entity_id)
+      );
+
+      // Group slots by box number
+      const boxMap = new Map<number, HATray[]>();
+      for (const slotEntity of slotFilamentEntities) {
+        const match = slotEntity.entity_id.match(cfsSlotPattern)!;
+        const boxNum = parseInt(match[1], 10);
+        const slotNum = parseInt(match[2], 10);
+
+        const slotState = stateMap.get(slotEntity.entity_id);
+        const attrs = slotState?.attributes || {};
+
+        if (!boxMap.has(boxNum)) {
+          boxMap.set(boxNum, []);
+        }
+
+        boxMap.get(boxNum)!.push({
+          entity_id: slotEntity.entity_id,
+          unique_id: slotEntity.unique_id,
+          tray_number: slotNum,
+          name: attrs.name as string,
+          color: (attrs.color_hex as string)?.replace('#', ''),
+          material: attrs.type as string,
+          tray_uuid: attrs.rfid != null ? String(attrs.rfid) : undefined,
+        });
+      }
+
+      // Build HAAMS units from box map
+      const amsUnits: HAAMS[] = [];
+      for (const [boxNum, trays] of boxMap) {
+        // Find humidity entity for this box
+        const humidityEntity = allPrinterEntities.find(e =>
+          e.entity_id.includes(`cfs_box_${boxNum}_humidity`)
+        );
+
+        trays.sort((a, b) => a.tray_number - b.tray_number);
+
+        amsUnits.push({
+          entity_id: humidityEntity?.entity_id || trays[0].entity_id,
+          name: `CFS Box ${boxNum}`,
+          ams_number: boxNum,
+          trays,
+        });
+      }
+      amsUnits.sort((a, b) => a.ams_number - b.ams_number);
+
+      // Find external filament entity
+      const externalSpools: HATray[] = [];
+      const extFilamentEntity = allPrinterEntities.find(e =>
+        e.entity_id.includes('cfs_external_filament')
+      );
+      if (extFilamentEntity) {
+        const extState = stateMap.get(extFilamentEntity.entity_id);
+        const attrs = extState?.attributes || {};
+        externalSpools.push({
+          entity_id: extFilamentEntity.entity_id,
+          unique_id: extFilamentEntity.unique_id,
+          tray_number: 0,
+          is_external: true,
+          name: attrs.name as string,
+          color: (attrs.color_hex as string)?.replace('#', ''),
+          material: attrs.type as string,
+          tray_uuid: attrs.rfid != null ? String(attrs.rfid) : undefined,
+        });
+      }
+
+      // Find print-related entities
+      const usedMaterialEntity = allPrinterEntities.find(e =>
+        e.entity_id.endsWith('_used_material_length')
+      );
+      const printProgressEntity = allPrinterEntities.find(e =>
+        e.entity_id.endsWith('_print_progress')
+      );
+
+      printers.push({
+        brand: 'creality',
+        entity_id: printerEntity.entity_id,
+        name,
+        state: printerState?.state || 'unknown',
+        prefix,
+        ams_units: amsUnits,
+        external_spools: externalSpools,
+        print_progress_entity: printProgressEntity?.entity_id,
+        used_material_entity: usedMaterialEntity?.entity_id,
+      });
+    }
+
+    return printers;
+  }
+
+  /**
+   * Get a mapping of entity_id → unique_id for all printer integration entities.
    * Used by the webhook handler to convert entity_ids to stable unique_ids.
    */
   async getEntityIdToUniqueIdMap(): Promise<Map<string, string>> {
+    const supportedPlatforms = new Set(['bambu_lab', 'ha_creality_ws']);
     const { entities } = await this.getEntityAndDeviceRegistry();
     const map = new Map<string, string>();
     for (const entity of entities) {
-      if (entity.platform === 'bambu_lab') {
+      if (supportedPlatforms.has(entity.platform)) {
         map.set(entity.entity_id, entity.unique_id);
       }
     }
@@ -1006,7 +1172,7 @@ export class HomeAssistantClient {
         return {
           flow_id: flowId,
           type: 'form',
-          handler: 'bambu_lab',
+          handler: errorBody.handler || 'unknown',
           step_id: 'error',
           errors: errorBody.errors,
         } as ConfigFlowResult;

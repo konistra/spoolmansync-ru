@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { HomeAssistantClient } from '@/lib/api/homeassistant';
 import prisma from '@/lib/db';
 
-const BAMBU_LAB_DOMAIN = 'bambu_lab';
+const SUPPORTED_DOMAINS = ['bambu_lab', 'ha_creality_ws'] as const;
+type PrinterDomain = typeof SUPPORTED_DOMAINS[number];
 const HIDDEN_PRINTERS_KEY = 'hidden_printers';
 
 /**
@@ -34,7 +35,7 @@ async function saveHiddenPrinters(hidden: { entryId: string; title: string }[]):
 
 /**
  * GET /api/printers/setup
- * Get current Bambu Lab config entries (configured printers),
+ * Get config entries for all supported printer integrations (Bambu Lab, Creality),
  * filtered to exclude printers the user has removed from SpoolmanSync.
  * Also returns hidden entries so the UI can offer to re-add them.
  */
@@ -46,15 +47,25 @@ export async function GET() {
       return NextResponse.json({ error: 'Home Assistant not connected' }, { status: 400 });
     }
 
-    console.log('[Printers] Fetching config entries for domain:', BAMBU_LAB_DOMAIN);
-    const entries = await client.getConfigEntries(BAMBU_LAB_DOMAIN);
+    // Fetch config entries for all supported printer domains
+    const allEntries = [];
+    for (const domain of SUPPORTED_DOMAINS) {
+      try {
+        const entries = await client.getConfigEntries(domain);
+        // Tag each entry with its domain for the frontend
+        allEntries.push(...entries.map(e => ({ ...e, domain })));
+      } catch (err) {
+        // Domain not installed — skip silently
+        console.log(`[Printers] Domain ${domain} not found or error:`, err);
+      }
+    }
 
     // Filter out printers the user has hidden from SpoolmanSync
     const hidden = await getHiddenPrinters();
     const hiddenIds = new Set(hidden.map(h => h.entryId));
-    const currentEntryIds = new Set(entries.map(e => e.entry_id));
-    const visibleEntries = entries.filter(e => !hiddenIds.has(e.entry_id));
-    const hiddenEntries = entries.filter(e => hiddenIds.has(e.entry_id));
+    const currentEntryIds = new Set(allEntries.map(e => e.entry_id));
+    const visibleEntries = allEntries.filter(e => !hiddenIds.has(e.entry_id));
+    const hiddenEntries = allEntries.filter(e => hiddenIds.has(e.entry_id));
 
     // Clean up stale hidden entries for printers no longer in HA
     const staleHidden = hidden.filter(h => !currentEntryIds.has(h.entryId));
@@ -64,19 +75,19 @@ export async function GET() {
       console.log(`[Printers] Cleaned up ${staleHidden.length} stale hidden entry(ies)`);
     }
 
-    console.log('[Printers] Found', entries.length, 'entries,', visibleEntries.length, 'visible,', hiddenEntries.length, 'hidden');
+    console.log('[Printers] Found', allEntries.length, 'entries,', visibleEntries.length, 'visible,', hiddenEntries.length, 'hidden');
     return NextResponse.json({ entries: visibleEntries, hiddenEntries });
   } catch (error) {
-    console.error('[Printers] Error getting Bambu Lab entries:', error);
+    console.error('[Printers] Error getting printer entries:', error);
     return NextResponse.json({ error: 'Failed to get printer configurations' }, { status: 500 });
   }
 }
 
 /**
  * POST /api/printers/setup
- * Start or continue a Bambu Lab config flow, or unhide a printer.
+ * Start or continue a printer config flow, or unhide a printer.
  *
- * Body for starting flow: { action: 'start' }
+ * Body for starting flow: { action: 'start', domain?: 'bambu_lab' | 'ha_creality_ws' }
  * Body for continuing flow: { action: 'continue', flowId: string, userInput: object }
  * Body for aborting flow: { action: 'abort', flowId: string }
  * Body for re-adding hidden printer: { action: 'unhide', entryId: string }
@@ -89,12 +100,25 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { action, flowId, userInput, entryId } = body;
+    const { action, flowId, userInput, entryId, domain } = body;
 
     switch (action) {
       case 'start': {
-        const result = await client.startConfigFlow(BAMBU_LAB_DOMAIN);
-        return NextResponse.json(result);
+        const targetDomain: PrinterDomain = SUPPORTED_DOMAINS.includes(domain) ? domain : 'bambu_lab';
+        try {
+          const result = await client.startConfigFlow(targetDomain);
+          return NextResponse.json(result);
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : '';
+          // HA returns 404 "Invalid handler" when integration is not installed
+          if (msg.includes('404') || msg.includes('Invalid handler')) {
+            const integrationName = targetDomain === 'ha_creality_ws' ? 'ha_creality_ws' : 'ha-bambulab';
+            return NextResponse.json({
+              error: `The ${integrationName} integration is not installed in Home Assistant. Please install it via HACS first, then try again.`,
+            }, { status: 400 });
+          }
+          throw err;
+        }
       }
 
       case 'continue': {
@@ -156,8 +180,15 @@ export async function DELETE(request: NextRequest) {
     try {
       const client = await HomeAssistantClient.fromConnection();
       if (client) {
-        const entries = await client.getConfigEntries('bambu_lab');
-        const entry = entries.find(e => e.entry_id === entryId);
+        // Search across all supported domains
+        let entry = null;
+        for (const d of SUPPORTED_DOMAINS) {
+          try {
+            const entries = await client.getConfigEntries(d);
+            entry = entries.find(e => e.entry_id === entryId);
+            if (entry) break;
+          } catch { /* domain not installed */ }
+        }
         if (entry) {
           entryTitle = entry.title;
 
