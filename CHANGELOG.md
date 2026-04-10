@@ -5,6 +5,18 @@ All notable changes to SpoolmanSync will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0] - 2026-04-10
+
+### Added
+- **Creality printer support** via the [ha_creality_ws](https://github.com/3dg1luk43/ha_creality_ws) integration (#28). Supports K1, K2, K2 Plus, Hi, Ender 3 V3 and other Creality printers with CFS (Creality Filament System). Bambu Lab and Creality printers can be managed side-by-side on the same dashboard.
+- Brand selection in the Add Printer dialog (Bambu Lab or Creality)
+- Automatic filament weight calculation for Creality printers, converting reported length (cm) to weight (g) using material-specific density lookup (PLA, PETG, ABS, ASA, TPU, PC, Nylon, etc.)
+- ha_creality_ws integration pre-installed in the embedded Home Assistant Docker image
+- Better error messages when a printer integration is not installed in Home Assistant
+
+### Changed
+- Documentation streamlined and updated to reflect multi-brand support
+
 ## [1.4.3] - 2026-04-07
 
 ### Fixed
