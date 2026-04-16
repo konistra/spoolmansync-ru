@@ -1083,6 +1083,15 @@ export class HomeAssistantClient {
   }
 
   /**
+   * Validate Home Assistant configuration without restarting.
+   * Returns { result: 'valid', errors: null } on success,
+   * or { result: 'invalid', errors: '...' } on failure.
+   */
+  async checkConfig(): Promise<{ result: 'valid' | 'invalid'; errors: string | null }> {
+    return this.fetch('/config/core/check_config', { method: 'POST' });
+  }
+
+  /**
    * Call a webhook
    */
   async callWebhook(webhookId: string, data: Record<string, unknown>): Promise<void> {

@@ -910,3 +910,174 @@ export function mergeConfiguration(existingConfig: string, additions: string): s
   // Append the new configuration
   return existingConfig.trim() + '\n' + additions;
 }
+
+// =============================================================================
+// HA Packages support for add-on mode
+// =============================================================================
+
+export interface PackagesConfig {
+  style: 'none' | 'directory' | 'named';
+  directoryPath?: string;       // For 'directory' style — the path from the !include_dir directive
+  insertAfterLineIndex?: number; // For 'named' style — line index to insert after
+  entryIndent?: string;         // For 'named' style — indentation string for entries
+  hasSpoolmansync?: boolean;    // Whether a spoolmansync entry already exists
+}
+
+/**
+ * Detect how packages are configured in configuration.yaml.
+ * Parses as text (not YAML) since !include directives aren't standard YAML.
+ */
+export function detectPackagesConfig(configContent: string): PackagesConfig {
+  const lines = configContent.split('\n');
+
+  // Find the homeassistant: block and packages: line within it
+  let inHomeassistant = false;
+  let homeassistantIndent = -1;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const trimmed = line.trimStart();
+
+    // Detect homeassistant: top-level key
+    if (/^homeassistant\s*:/.test(trimmed) && (line.length - trimmed.length) === 0) {
+      inHomeassistant = true;
+      homeassistantIndent = 0;
+      continue;
+    }
+
+    if (!inHomeassistant) continue;
+
+    // Check if we've left the homeassistant block (same or lower indentation, non-empty, non-comment)
+    const currentIndent = line.length - trimmed.length;
+    if (trimmed && !trimmed.startsWith('#') && currentIndent <= homeassistantIndent) {
+      inHomeassistant = false;
+      continue;
+    }
+
+    // Look for packages: within homeassistant:
+    const packagesMatch = trimmed.match(/^packages\s*:\s*(.*)$/);
+    if (!packagesMatch) continue;
+
+    const packagesIndent = currentIndent;
+    const restOfLine = packagesMatch[1].trim();
+
+    // Style B: !include_dir_named or !include_dir_merge_named
+    const dirMatch = restOfLine.match(/^!include_dir_(?:named|merge_named)\s+(.+)$/);
+    if (dirMatch) {
+      return {
+        style: 'directory',
+        directoryPath: dirMatch[1].trim(),
+      };
+    }
+
+    // Style C (or A with no value): named entries on subsequent lines
+    // Scan forward to find entries and the end of the packages block
+    const entryIndentLevel = packagesIndent + 2;
+    const entryIndent = ' '.repeat(entryIndentLevel);
+    let lastEntryEndIndex = i; // default: right after packages: line
+    let hasSpoolmansync = false;
+
+    for (let j = i + 1; j < lines.length; j++) {
+      const entryLine = lines[j];
+      const entryTrimmed = entryLine.trimStart();
+      const entryCurrentIndent = entryLine.length - entryTrimmed.length;
+
+      // Skip empty lines and comments
+      if (!entryTrimmed || entryTrimmed.startsWith('#')) {
+        continue;
+      }
+
+      // If indentation is at or below packages level, we've left the block
+      if (entryCurrentIndent <= packagesIndent) {
+        break;
+      }
+
+      // This line is inside the packages block
+      lastEntryEndIndex = j;
+
+      // Check for existing spoolmansync entry
+      if (entryTrimmed.startsWith('spoolmansync:') || entryTrimmed.startsWith('spoolmansync :')) {
+        hasSpoolmansync = true;
+      }
+    }
+
+    // If rest of line is empty and no entries found → treat as 'none' (empty packages block)
+    if (!restOfLine && lastEntryEndIndex === i) {
+      return { style: 'none' };
+    }
+
+    return {
+      style: 'named',
+      insertAfterLineIndex: lastEntryEndIndex,
+      entryIndent,
+      hasSpoolmansync,
+    };
+  }
+
+  return { style: 'none' };
+}
+
+/**
+ * Add `packages: !include_dir_named packages` under homeassistant: in configuration.yaml.
+ * If homeassistant: doesn't exist, adds it at the top.
+ */
+export function addPackagesDirective(configContent: string): string {
+  const lines = configContent.split('\n');
+
+  // Find homeassistant: line
+  for (let i = 0; i < lines.length; i++) {
+    if (/^homeassistant\s*:/.test(lines[i].trimStart()) && (lines[i].length - lines[i].trimStart().length) === 0) {
+      // Insert packages directive after homeassistant: line
+      lines.splice(i + 1, 0, '  packages: !include_dir_named packages');
+      return lines.join('\n');
+    }
+  }
+
+  // No homeassistant: key found — add it at the top
+  return 'homeassistant:\n  packages: !include_dir_named packages\n\n' + configContent;
+}
+
+/**
+ * Add a spoolmansync package entry under an existing named packages: block.
+ */
+export function addPackageEntry(configContent: string, config: PackagesConfig): string {
+  if (config.style !== 'named' || config.insertAfterLineIndex === undefined || !config.entryIndent) {
+    return configContent;
+  }
+
+  const lines = configContent.split('\n');
+  const newLine = `${config.entryIndent}spoolmansync: !include spoolmansync_package.yaml`;
+  lines.splice(config.insertAfterLineIndex + 1, 0, newLine);
+  return lines.join('\n');
+}
+
+/**
+ * Remove any existing SpoolmanSync block from configuration.yaml.
+ * Uses the existing mergeConfiguration logic with empty additions.
+ */
+export function stripSpoolmanSyncConfig(configContent: string): string {
+  if (!configContent.includes('# SpoolmanSync Configuration')) {
+    return configContent;
+  }
+  // mergeConfiguration with empty additions removes the old block and appends nothing meaningful
+  return mergeConfiguration(configContent, '').trim() + '\n';
+}
+
+/**
+ * Convert configurationAdditions output into a standalone package file.
+ * Strips the leading comment block and adds a package header.
+ */
+export function toPackageFileContent(configurationAdditions: string): string {
+  const lines = configurationAdditions.split('\n');
+  let firstKeyIndex = 0;
+  for (let i = 0; i < lines.length; i++) {
+    const trimmed = lines[i].trim();
+    if (trimmed && !trimmed.startsWith('#') && !trimmed.startsWith('=')) {
+      firstKeyIndex = i;
+      break;
+    }
+  }
+
+  return '# SpoolmanSync package — auto-generated, do not edit manually\n' +
+    lines.slice(firstKeyIndex).join('\n');
+}
