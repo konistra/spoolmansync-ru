@@ -24,17 +24,23 @@ fi
 export DIRECT_ACCESS_PORT="$DIRECT_PORT"
 echo "Direct access port: $DIRECT_PORT"
 
+# Read the ingress port assigned by Supervisor (dynamic, avoids conflicts with other add-ons)
+INGRESS_PORT=$(curl -s -X GET "http://supervisor/addons/self/info" \
+  -H "Authorization: Bearer ${SUPERVISOR_TOKEN}" | jq -r '.data.ingress_port // 8099')
+echo "Ingress port: $INGRESS_PORT"
+
 # Derive internal Next.js port from direct port (+1) to avoid conflicts on host_network
 INTERNAL_PORT=$((DIRECT_PORT + 1))
-# Avoid colliding with the ingress port (8099)
-if [ "$INTERNAL_PORT" -eq 8099 ]; then
-    INTERNAL_PORT=8100
+# Avoid colliding with the ingress port
+if [ "$INTERNAL_PORT" -eq "$INGRESS_PORT" ]; then
+    INTERNAL_PORT=$((INTERNAL_PORT + 1))
 fi
 export PORT="$INTERNAL_PORT"
 echo "Internal Next.js port: $INTERNAL_PORT"
 
 # Update nginx config with the configured ports
 sed -i "s/listen 3000;/listen ${DIRECT_PORT};/" /etc/nginx/http.d/default.conf
+sed -i "s/listen 8099;/listen ${INGRESS_PORT};/" /etc/nginx/http.d/default.conf
 sed -i "s/127.0.0.1:3001/127.0.0.1:${INTERNAL_PORT}/g" /etc/nginx/http.d/default.conf
 
 # Supervisor token is automatically available
@@ -54,9 +60,9 @@ npx prisma migrate deploy 2>&1 || {
 echo "Migrations complete."
 
 # Start nginx in background
-# nginx serves the configured direct access port and port 8099 (HA ingress)
+# nginx serves the configured direct access port and the Supervisor-assigned ingress port
 # Both proxy to the internal Next.js server
-echo "Starting nginx on ports ${DIRECT_PORT} and 8099..."
+echo "Starting nginx on ports ${DIRECT_PORT} (direct) and ${INGRESS_PORT} (ingress)..."
 nginx -g 'daemon off;' &
 
 # Start the Next.js server on internal port

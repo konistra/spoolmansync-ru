@@ -10,7 +10,7 @@ arch:
 
 # Ingress (web UI in HA sidebar)
 ingress: true
-ingress_port: 8099
+ingress_port: 0
 panel_icon: mdi:target
 panel_title: SpoolmanSync
 
