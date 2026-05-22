@@ -11,7 +11,7 @@ const navItems = [
   { href: '/', label: 'Панель управления' },
   { href: '/scan', label: 'Сканирование' },
   { href: '/reports', label: 'Отчёты' },
-  { href: '/automations', label: 'Автоматизации' },
+  { href: '/automations', label: 'Автоматизация' },
   { href: '/settings', label: 'Настройки' },
   { href: '/logs', label: 'Логи' },
 ];
