@@ -8,12 +8,12 @@ import { ThemeToggle } from '@/components/theme-toggle';
 import { Button } from '@/components/ui/button';
 
 const navItems = [
-  { href: '/', label: 'Dashboard' },
-  { href: '/scan', label: 'Scan' },
-  { href: '/reports', label: 'Reports' },
-  { href: '/automations', label: 'Automations' },
-  { href: '/settings', label: 'Settings' },
-  { href: '/logs', label: 'Logs' },
+  { href: '/', label: 'Панель управления' },
+  { href: '/scan', label: 'Сканирование' },
+  { href: '/reports', label: 'Отчёты' },
+  { href: '/automations', label: 'Автоматизации' },
+  { href: '/settings', label: 'Настройки' },
+  { href: '/logs', label: 'Логи' },
 ];
 
 export function Nav() {

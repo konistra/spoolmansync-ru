@@ -134,7 +134,7 @@ export default function ReportsPage() {
       <Nav />
       <main className="w-full max-w-7xl mx-auto py-6 px-3 sm:px-4 md:px-6">
         <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <h1 className="text-xl sm:text-2xl font-bold">Filament Usage Reports</h1>
+          <h1 className="text-xl sm:text-2xl font-bold">Отчёты об использовании filament</h1>
           <PeriodSelector selectedDays={selectedDays} onChange={setSelectedDays} />
         </div>
 
@@ -148,7 +148,7 @@ export default function ReportsPage() {
           </div>
         ) : data && data.summary.totalPrints === 0 ? (
           <div className="text-center py-12">
-            <p className="text-muted-foreground text-lg mb-2">No filament usage data yet</p>
+            <p className="text-muted-foreground text-lg mb-2">Нет данных об использовании filament</p>
             <p className="text-muted-foreground text-sm">
               Usage is recorded automatically when print jobs complete. Assign spools to trays
               and start printing to see reports here.

@@ -24,10 +24,10 @@ interface Pagination {
 type FilterType = 'all' | 'actions' | 'tray_changes' | 'errors';
 
 const FILTER_OPTIONS: { value: FilterType; label: string; description: string }[] = [
-  { value: 'all', label: 'All Events', description: 'Show all activity' },
-  { value: 'actions', label: 'Actions', description: 'Spool assignments and usage' },
-  { value: 'tray_changes', label: 'Tray Changes', description: 'All detected tray changes' },
-  { value: 'errors', label: 'Errors', description: 'Errors only' },
+  { value: 'all', label: 'Все события', description: 'Show all activity' },
+  { value: 'actions', label: 'Действия', description: 'Spool assignments and usage' },
+  { value: 'tray_changes', label: 'Изменения лотков', description: 'All detected tray changes' },
+  { value: 'errors', label: 'Ошибки', description: 'Ошибки only' },
 ];
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
@@ -264,16 +264,16 @@ export default function LogsPage() {
       <main className="w-full max-w-7xl mx-auto py-6 px-3 sm:px-4 md:px-6">
         <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <h1 className="text-xl sm:text-2xl font-bold">Activity Logs</h1>
+            <h1 className="text-xl sm:text-2xl font-bold">Журнал активности</h1>
             {connected && (
               <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
                 <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
-                Live
+                В реальном времени
               </span>
             )}
           </div>
           <Button variant="outline" onClick={() => fetchLogs(page, filter)} disabled={loading} className="w-auto self-start sm:self-auto">
-            {loading ? 'Loading...' : 'Refresh'}
+            {loading ? 'Loading...' : 'Обновить'}
           </Button>
         </div>
 
@@ -309,7 +309,7 @@ export default function LogsPage() {
           <CardContent>
             {logs.length === 0 ? (
               <p className="text-muted-foreground text-center py-8">
-                No activity logs yet
+                Журнал активности пока пуст
               </p>
             ) : (
               <div className="space-y-3">

@@ -104,22 +104,21 @@ function SettingsContent() {
     const error = searchParams.get('error');
 
     if (success === 'ha_connected') {
-      toast.success('Home Assistant connected successfully');
+      toast.success('Home Assistant подключён успешно');
       window.history.replaceState({}, '', '/settings');
     } else if (error) {
       const errorMessages: Record<string, string> = {
-        missing_params: 'OAuth callback missing parameters',
-        invalid_state: 'Invalid OAuth state - please try again',
-        token_exchange_failed: 'Failed to exchange authorization code',
-        oauth_failed: 'OAuth authentication failed',
+        missing_params: 'Отсутствуют параметры OAuth',
+        invalid_state: 'Недействительное состояние OAuth — попробуйте снова',
+        token_exchange_failed: 'Не удалось обменять код авторизации',
+        oauth_failed: 'Ошибка аутентификации OAuth',
       };
-      toast.error(errorMessages[error] || 'Authentication failed');
+      toast.error(errorMessages[error] || 'Ошибка аутентификации');
       window.history.replaceState({}, '', '/settings');
     }
   }, [searchParams]);
 
-  // Fetch printers when HA is connected, and poll to stay in sync
-  // with changes made directly in HA (e.g. printer added/removed in ha-bambulab)
+  // Fetch printers when HA is connected
   useEffect(() => {
     if (settings?.homeassistant?.connected) {
       fetchPrinters();
@@ -141,7 +140,7 @@ function SettingsContent() {
     if (settings?.embeddedMode && !settings?.homeassistant && !loading) {
       const interval = setInterval(() => {
         fetchSettings();
-      }, 3000); // Poll every 3 seconds
+      }, 3000);
       return () => clearInterval(interval);
     }
   }, [settings?.embeddedMode, settings?.homeassistant, loading]);
@@ -165,7 +164,7 @@ function SettingsContent() {
         setShowSpoolLocation(data.showSpoolLocation);
       }
     } catch {
-      toast.error('Failed to load settings');
+      toast.error('Не удалось загрузить настройки');
     } finally {
       setLoading(false);
     }
@@ -197,10 +196,10 @@ function SettingsContent() {
         throw new Error('Failed to remove printer');
       }
 
-      toast.success('Printer removed');
+      toast.success('Принтер удалён');
       fetchPrinters();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to remove printer');
+      toast.error(err instanceof Error ? err.message : 'Не удалось удалить принтер');
     } finally {
       setRemovingPrinter(null);
     }
@@ -219,10 +218,10 @@ function SettingsContent() {
         throw new Error('Failed to re-add printer');
       }
 
-      toast.success('Printer added back to SpoolmanSync');
+      toast.success('Принтер возвращён в SpoolmanSync');
       fetchPrinters();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to re-add printer');
+      toast.error(err instanceof Error ? err.message : 'Не удалось вернуть принтер');
     } finally {
       setReaddingPrinter(null);
     }
@@ -230,7 +229,7 @@ function SettingsContent() {
 
   const connectHomeAssistant = async () => {
     if (!haUrl) {
-      toast.error('Please enter your Home Assistant URL');
+      toast.error('Пожалуйста, введите URL Home Assistant');
       return;
     }
 
@@ -240,12 +239,12 @@ function SettingsContent() {
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.error || 'Failed to start authentication');
+        throw new Error(data.error || 'Не удалось начать аутентификацию');
       }
 
       window.location.href = data.authUrl;
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to connect to Home Assistant');
+      toast.error(err instanceof Error ? err.message : 'Не удалось подключиться к Home Assistant');
       setConnecting(false);
     }
   };
@@ -263,11 +262,11 @@ function SettingsContent() {
         throw new Error('Failed to disconnect');
       }
 
-      toast.success('Home Assistant disconnected');
+      toast.success('Home Assistant отключён');
       setSettings(prev => prev ? { ...prev, homeassistant: null } : null);
       setHaUrl('');
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to disconnect');
+      toast.error(err instanceof Error ? err.message : 'Не удалось отключить');
     } finally {
       setSaving(null);
     }
@@ -276,15 +275,15 @@ function SettingsContent() {
   const copyToClipboard = async (text: string, label: string) => {
     try {
       await navigator.clipboard.writeText(text);
-      toast.success(`${label} copied to clipboard`);
+      toast.success(`${label} скопировано`);
     } catch {
-      toast.error('Failed to copy to clipboard');
+      toast.error('Не удалось скопировать');
     }
   };
 
   const reconnectHomeAssistant = async () => {
     if (!reconnectPassword) {
-      toast.error('Please enter the Home Assistant password');
+      toast.error('Пожалуйста, введите пароль Home Assistant');
       return;
     }
 
@@ -303,15 +302,15 @@ function SettingsContent() {
 
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.error || 'Failed to reconnect');
+        throw new Error(data.error || 'Не удалось переподключиться');
       }
 
-      toast.success('Reconnected to Home Assistant');
+      toast.success('Переподключение к Home Assistant выполнено');
       setReconnectPassword('');
       setReconnectError('');
       fetchSettings();
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to reconnect';
+      const message = err instanceof Error ? err.message : 'Не удалось переподключиться';
       setReconnectError(message);
       toast.error(message);
     } finally {
@@ -333,13 +332,13 @@ function SettingsContent() {
 
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.error || 'Failed to save');
+        throw new Error(data.error || 'Не удалось сохранить');
       }
 
-      toast.success('Spoolman connected successfully');
+      toast.success('Spoolman подключён успешно');
       fetchSettings();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to connect to Spoolman');
+      toast.error(err instanceof Error ? err.message : 'Не удалось подключиться к Spoolman');
     } finally {
       setSaving(null);
     }
@@ -375,9 +374,9 @@ function SettingsContent() {
       }
 
       setEnabledFilters(newConfig);
-      toast.success('Filter settings saved');
+      toast.success('Настройки фильтров сохранены');
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to save filter settings');
+      toast.error(err instanceof Error ? err.message : 'Не удалось сохранить настройки фильтров');
     } finally {
       setSavingFilters(false);
     }
@@ -431,9 +430,9 @@ function SettingsContent() {
 
       const data = await res.json();
       if (data.alerts) setActiveAlerts(data.alerts);
-      toast.success('Alert settings saved');
+      toast.success('Настройки уведомлений сохранены');
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to save alert settings');
+      toast.error(err instanceof Error ? err.message : 'Не удалось сохранить настройки уведомлений');
     } finally {
       setSavingAlerts(false);
     }
@@ -456,7 +455,7 @@ function SettingsContent() {
     <div className="min-h-screen bg-background">
       <Nav />
       <main className="w-full max-w-2xl mx-auto py-6 px-3 sm:px-4 md:px-6">
-        <h1 className="text-xl sm:text-2xl font-bold mb-6">Settings</h1>
+        <h1 className="text-xl sm:text-2xl font-bold mb-6">Настройки</h1>
 
         <div className="space-y-6">
           {/* Home Assistant Settings */}
@@ -471,69 +470,65 @@ function SettingsContent() {
                 <CardTitle>Home Assistant</CardTitle>
                 {settings?.embeddedMode && (
                   <span className="text-xs bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded">
-                    Embedded
+                    Встроенный
                   </span>
                 )}
                 {settings?.addonMode && (
                   <span className="text-xs bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 px-2 py-0.5 rounded">
-                    Add-on
+                    Дополнение
                   </span>
                 )}
               </div>
               <CardDescription>
                 {settings?.addonMode
-                  ? 'Connected automatically via Home Assistant Supervisor.'
+                  ? 'Подключено автоматически через Supervisor Home Assistant.'
                   : settings?.embeddedMode
-                    ? 'Home Assistant is bundled with SpoolmanSync and auto-configured.'
-                    : 'Connect to your Home Assistant instance to discover Bambu Lab printers.'}
+                    ? 'Home Assistant встроен в SpoolmanSync и настроен автоматически.'
+                    : 'Подключитесь к вашему экземпляру Home Assistant для обнаружения принтеров Bambu Lab.'}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               {settings?.addonMode ? (
-                // Add-on mode - HA connection is automatic via Supervisor
                 <div className="space-y-4">
                   {settings?.homeassistant ? (
                     <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
                       <div>
-                        <p className="font-medium text-green-600 dark:text-green-400">Connected via Supervisor</p>
+                        <p className="font-medium text-green-600 dark:text-green-400">Подключено через Supervisor</p>
                         <p className="text-sm text-muted-foreground">
-                          SpoolmanSync is running as a Home Assistant add-on with automatic API access.
+                          SpoolmanSync работает как дополнение Home Assistant с автоматическим доступом к API.
                         </p>
                       </div>
                     </div>
                   ) : (
                     <div className="p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
-                      <p className="font-medium text-yellow-700 dark:text-yellow-400">Connecting to Home Assistant...</p>
+                      <p className="font-medium text-yellow-700 dark:text-yellow-400">Подключение к Home Assistant...</p>
                       <p className="text-sm text-yellow-600 dark:text-yellow-500 mt-1">
-                        The Supervisor connection is being established.
+                        Устанавливается соединение с Supervisor.
                       </p>
                     </div>
                   )}
                   <p className="text-xs text-muted-foreground">
-                    The Bambu Lab integration must be installed via HACS in your Home Assistant instance.
-                    Add your printers in the Bambu Lab section below.
+                    Интеграция Bambu Lab должна быть установлена через HACS в вашем Home Assistant.
+                    Добавьте принтеры в разделе Bambu Lab ниже.
                   </p>
                 </div>
               ) : settings?.embeddedMode ? (
-                // Embedded mode - show status and admin credentials
                 <div className="space-y-4">
                   {settings?.homeassistant?.connected ? (
-                    // State 1: Connected
                     <>
                       <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
                         <div>
-                          <p className="font-medium text-green-600 dark:text-green-400">Connected</p>
+                          <p className="font-medium text-green-600 dark:text-green-400">Подключено</p>
                           <p className="text-sm text-muted-foreground">{settings.homeassistant.url}</p>
                         </div>
                       </div>
 
-                      {/* Admin Credentials Section */}
                       {settings.homeassistant.adminCredentials && (
                         <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg space-y-3">
                           <div>
-                            <p className="font-medium text-blue-700 dark:text-blue-300">Home Assistant Login</p>
+                            <p className="font-medium text-blue-700 dark:text-blue-300">Вход в Home Assistant</p>
                             <p className="text-sm text-blue-600 dark:text-blue-400 mt-1">
-                              Use these credentials to access Home Assistant directly at{' '}
+                              Используйте эти учётные данные для прямого доступа к Home Assistant по адресу{' '}
                               <a
                                 href="http://localhost:8123"
                                 target="_blank"
@@ -547,7 +542,7 @@ function SettingsContent() {
 
                           <div className="grid gap-2">
                             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-2">
-                              <span className="text-sm text-muted-foreground">Username:</span>
+                              <span className="text-sm text-muted-foreground">Имя пользователя:</span>
                               <div className="flex items-center gap-2">
                                 <code className="px-2 py-1 bg-background rounded text-sm truncate max-w-[150px] sm:max-w-none">
                                   {settings.homeassistant.adminCredentials.username}
@@ -556,14 +551,14 @@ function SettingsContent() {
                                   variant="ghost"
                                   size="sm"
                                   className="h-7 px-2 shrink-0"
-                                  onClick={() => copyToClipboard(settings.homeassistant!.adminCredentials!.username, 'Username')}
+                                  onClick={() => copyToClipboard(settings.homeassistant!.adminCredentials!.username, 'Имя пользователя')}
                                 >
-                                  Copy
+                                  Копировать
                                 </Button>
                               </div>
                             </div>
                             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-2">
-                              <span className="text-sm text-muted-foreground">Password:</span>
+                              <span className="text-sm text-muted-foreground">Пароль:</span>
                               <div className="flex items-center gap-2">
                                 <code className="px-2 py-1 bg-background rounded text-sm font-mono truncate max-w-[150px] sm:max-w-none">
                                   {showPassword
@@ -576,41 +571,40 @@ function SettingsContent() {
                                   className="h-7 px-2 shrink-0"
                                   onClick={() => setShowPassword(!showPassword)}
                                 >
-                                  {showPassword ? 'Hide' : 'Show'}
+                                  {showPassword ? 'Скрыть' : 'Показать'}
                                 </Button>
                                 <Button
                                   variant="ghost"
                                   size="sm"
                                   className="h-7 px-2 shrink-0"
-                                  onClick={() => copyToClipboard(settings.homeassistant!.adminCredentials!.password, 'Password')}
+                                  onClick={() => copyToClipboard(settings.homeassistant!.adminCredentials!.password, 'Пароль')}
                                 >
-                                  Copy
+                                  Копировать
                                 </Button>
                               </div>
                             </div>
                           </div>
 
                           <p className="text-xs text-muted-foreground pt-2 border-t border-blue-200 dark:border-blue-800">
-                            If you change the password in Home Assistant, you can reconnect here using the new password.
+                            Если вы измените пароль в Home Assistant, вы можете переподключиться здесь, используя новый пароль.
                           </p>
                         </div>
                       )}
                     </>
                   ) : settings?.homeassistant?.error ? (
-                    // State 3: Connection broken (token invalid, password may have changed)
                     <div className="p-4 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg space-y-3">
                       <div>
-                        <p className="font-medium text-orange-700 dark:text-orange-400">Connection Lost</p>
+                        <p className="font-medium text-orange-700 dark:text-orange-400">Соединение потеряно</p>
                         <p className="text-sm text-orange-600 dark:text-orange-500 mt-1">
-                          The Home Assistant connection token is no longer valid.
-                          This usually happens after changing the HA password.
-                          Enter your current Home Assistant credentials to reconnect.
+                          Токен подключения к Home Assistant больше не действителен.
+                          Обычно это происходит после смены пароля HA.
+                          Введите текущие учётные данные Home Assistant для переподключения.
                         </p>
                       </div>
 
                       <div className="space-y-3">
                         <div className="space-y-1">
-                          <Label htmlFor="reconnect-username">Username</Label>
+                          <Label htmlFor="reconnect-username">Имя пользователя</Label>
                           <Input
                             id="reconnect-username"
                             value={reconnectUsername}
@@ -618,13 +612,13 @@ function SettingsContent() {
                           />
                         </div>
                         <div className="space-y-1">
-                          <Label htmlFor="reconnect-password">Password</Label>
+                          <Label htmlFor="reconnect-password">Пароль</Label>
                           <Input
                             id="reconnect-password"
                             type="password"
                             value={reconnectPassword}
                             onChange={(e) => setReconnectPassword(e.target.value)}
-                            placeholder="Enter your HA password"
+                            placeholder="Введите пароль HA"
                             onKeyDown={(e) => {
                               if (e.key === 'Enter') reconnectHomeAssistant();
                             }}
@@ -637,36 +631,34 @@ function SettingsContent() {
                           onClick={reconnectHomeAssistant}
                           disabled={reconnecting || !reconnectPassword}
                         >
-                          {reconnecting ? 'Reconnecting...' : 'Reconnect'}
+                          {reconnecting ? 'Переподключение...' : 'Переподключиться'}
                         </Button>
                       </div>
                     </div>
                   ) : !settings?.homeassistant ? (
-                    // State 2: HA still starting up (no connection yet)
                     <div className="p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
-                      <p className="font-medium text-yellow-700 dark:text-yellow-400">Connecting to Home Assistant...</p>
+                      <p className="font-medium text-yellow-700 dark:text-yellow-400">Подключение к Home Assistant...</p>
                       <p className="text-sm text-yellow-600 dark:text-yellow-500 mt-1">
-                        Home Assistant is starting up and being configured automatically.
-                        This may take up to a minute on first run.
+                        Home Assistant запускается и настраивается автоматически.
+                        При первом запуске это может занять до минуты.
                       </p>
                       <div className="flex items-center gap-2 mt-3">
                         <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-yellow-600" />
                         <Button variant="outline" size="sm" onClick={fetchSettings}>
-                          Refresh Status
+                          Обновить статус
                         </Button>
                       </div>
                     </div>
                   ) : null}
                   <p className="text-xs text-muted-foreground">
-                    The embedded Home Assistant is pre-configured with HACS and the Bambu Lab integration.
-                    Add your printers in the Bambu Lab section below.
+                    Встроенный Home Assistant предварительно настроен с HACS и интеграцией Bambu Lab.
+                    Добавьте принтеры в разделе Bambu Lab ниже.
                   </p>
                 </div>
               ) : settings?.homeassistant ? (
-                // External mode - connected
                 <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
                   <div>
-                    <p className="font-medium">Connected</p>
+                    <p className="font-medium">Подключено</p>
                     <p className="text-sm text-muted-foreground">{settings.homeassistant.url}</p>
                   </div>
                   <Button
@@ -674,14 +666,13 @@ function SettingsContent() {
                     onClick={disconnectHomeAssistant}
                     disabled={saving === 'ha'}
                   >
-                    {saving === 'ha' ? 'Disconnecting...' : 'Disconnect'}
+                    {saving === 'ha' ? 'Отключение...' : 'Отключить'}
                   </Button>
                 </div>
               ) : (
-                // External mode - not connected
                 <>
                   <div className="space-y-2">
-                    <Label htmlFor="ha-url">Home Assistant URL</Label>
+                    <Label htmlFor="ha-url">URL Home Assistant</Label>
                     <Input
                       id="ha-url"
                       placeholder="http://homeassistant.local:8123"
@@ -689,14 +680,14 @@ function SettingsContent() {
                       onChange={(e) => setHaUrl(e.target.value)}
                     />
                     <p className="text-xs text-muted-foreground">
-                      Enter your Home Assistant URL, then click Connect to authorize.
+                      Введите URL вашего Home Assistant, затем нажмите «Подключиться» для авторизации.
                     </p>
                   </div>
                   <Button
                     onClick={connectHomeAssistant}
                     disabled={connecting || !haUrl}
                   >
-                    {connecting ? 'Redirecting...' : 'Connect with Home Assistant'}
+                    {connecting ? 'Перенаправление...' : 'Подключиться к Home Assistant'}
                   </Button>
                 </>
               )}
@@ -711,13 +702,13 @@ function SettingsContent() {
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <div>
-                    <CardTitle>Bambu Lab Printers</CardTitle>
+                    <CardTitle>Принтеры Bambu Lab</CardTitle>
                     <CardDescription>
-                      Configure your Bambu Lab printers to sync with Spoolman.
+                      Настройте ваши принтеры Bambu Lab для синхронизации с Spoolman.
                     </CardDescription>
                   </div>
                   <Button onClick={() => setAddPrinterOpen(true)}>
-                    Add Printer
+                    Добавить принтер
                   </Button>
                 </div>
               </CardHeader>
@@ -725,8 +716,8 @@ function SettingsContent() {
                 <div className="space-y-3">
                   {printers.length === 0 && hiddenPrinters.length === 0 && (
                     <div className="text-center py-6 text-muted-foreground">
-                      <p>No printers configured yet.</p>
-                      <p className="text-sm mt-1">Click &quot;Add Printer&quot; to connect your Bambu Lab printer.</p>
+                      <p>Принтеры ещё не настроены.</p>
+                      <p className="text-sm mt-1">Нажмите «Добавить принтер», чтобы подключить принтер Bambu Lab.</p>
                     </div>
                   )}
                   {printers.map((printer) => (
@@ -738,7 +729,7 @@ function SettingsContent() {
                         <p className="font-medium">{printer.title}</p>
                         <p className="text-sm text-muted-foreground">
                           {printer.state === 'loaded' ? (
-                            <span className="text-green-600 dark:text-green-400">Connected</span>
+                            <span className="text-green-600 dark:text-green-400">Подключено</span>
                           ) : (
                             <span className="text-yellow-600 dark:text-yellow-400">{printer.state}</span>
                           )}
@@ -750,14 +741,14 @@ function SettingsContent() {
                         onClick={() => removePrinter(printer.entry_id)}
                         disabled={removingPrinter === printer.entry_id}
                       >
-                        {removingPrinter === printer.entry_id ? 'Removing...' : 'Remove'}
+                        {removingPrinter === printer.entry_id ? 'Удаление...' : 'Удалить'}
                       </Button>
                     </div>
                   ))}
                   {hiddenPrinters.length > 0 && (
                     <div className={printers.length > 0 ? 'pt-2 border-t' : ''}>
                       <p className="text-xs text-muted-foreground mb-2">
-                        Removed from SpoolmanSync (still in Home Assistant):
+                        Удалены из SpoolmanSync (остались в Home Assistant):
                       </p>
                       {hiddenPrinters.map((printer) => (
                         <div
@@ -773,7 +764,7 @@ function SettingsContent() {
                             onClick={() => readdPrinter(printer.entry_id)}
                             disabled={readdingPrinter === printer.entry_id}
                           >
-                            {readdingPrinter === printer.entry_id ? 'Adding...' : 'Re-add'}
+                            {readdingPrinter === printer.entry_id ? 'Добавление...' : 'Вернуть'}
                           </Button>
                         </div>
                       ))}
@@ -794,12 +785,12 @@ function SettingsContent() {
                 <CardTitle>Spoolman</CardTitle>
               </div>
               <CardDescription>
-                Connect to your Spoolman instance to manage filament spools.
+                Подключитесь к вашему экземпляру Spoolman для управления катушками filament.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="spoolman-url">Spoolman URL</Label>
+                <Label htmlFor="spoolman-url">URL Spoolman</Label>
                 <Input
                   id="spoolman-url"
                   placeholder="http://localhost:7912"
@@ -811,7 +802,7 @@ function SettingsContent() {
                 onClick={saveSpoolmanSettings}
                 disabled={saving === 'spoolman' || !spoolmanUrl}
               >
-                {saving === 'spoolman' ? 'Connecting...' : settings?.spoolman ? 'Update Connection' : 'Connect'}
+                {saving === 'spoolman' ? 'Подключение...' : settings?.spoolman ? 'Обновить подключение' : 'Подключиться'}
               </Button>
             </CardContent>
           </Card>
@@ -822,9 +813,9 @@ function SettingsContent() {
               <Separator />
               <Card>
                 <CardHeader>
-                  <CardTitle>Dashboard Display</CardTitle>
+                  <CardTitle>Отображение панели</CardTitle>
                   <CardDescription>
-                    Configure what information is shown on the dashboard spool cards.
+                    Настройте, какая информация отображается на карточках катушек на панели управления.
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -842,19 +833,19 @@ function SettingsContent() {
                             body: JSON.stringify({ type: 'show_spool_location', enabled }),
                           });
                           if (!res.ok) throw new Error();
-                          toast.success(enabled ? 'Spool location enabled on dashboard' : 'Spool location hidden on dashboard');
+                          toast.success(enabled ? 'Отображение расположения катушки включено' : 'Отображение расположения катушки выключено');
                         } catch {
                           setShowSpoolLocation(!enabled);
-                          toast.error('Failed to save setting');
+                          toast.error('Не удалось сохранить настройку');
                         }
                       }}
                     />
                     <div>
                       <Label htmlFor="show-spool-location" className="text-sm font-medium cursor-pointer">
-                        Show spool location
+                        Показывать расположение катушки
                       </Label>
                       <p className="text-xs text-muted-foreground">
-                        Display the Spoolman location field on each spool card (e.g., shelf, dry box, bin number)
+                        Отображать поле расположения Spoolman на каждой карточке катушки (например, полка, сухой бокс, номер ячейки)
                       </p>
                     </div>
                   </div>
@@ -869,22 +860,22 @@ function SettingsContent() {
               <Separator />
               <Card>
                 <CardHeader>
-                  <CardTitle>Spool Filter Configuration</CardTitle>
+                  <CardTitle>Конфигурация фильтрации катушек</CardTitle>
                   <CardDescription>
-                    Choose which fields appear as filter dropdowns when assigning spools to trays.
-                    The search box always searches all fields regardless of this setting.
+                    Выберите, какие поля будут отображаться в раскрывающихся списках фильтров при назначении катушек на лотки.
+                    Поле поиска всегда ищет по всем полям независимо от этой настройки.
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
                   {filterFields.length === 0 ? (
                     <p className="text-sm text-muted-foreground">
-                      Loading filter options...
+                      Загрузка параметров фильтрации...
                     </p>
                   ) : (
                     <div className="space-y-4">
                       {/* Built-in fields */}
                       <div>
-                        <h4 className="text-sm font-medium mb-2 text-muted-foreground">Built-in Fields</h4>
+                        <h4 className="text-sm font-medium mb-2 text-muted-foreground">Встроенные поля</h4>
                         <div className="space-y-3">
                           {filterFields.filter(f => f.builtIn).map((field) => (
                             <div key={field.key} className="flex items-center space-x-3">
@@ -903,11 +894,11 @@ function SettingsContent() {
                                 </Label>
                                 {field.values.length > 0 ? (
                                   <p className="text-xs text-muted-foreground">
-                                    {field.values.length} value{field.values.length !== 1 ? 's' : ''}: {field.values.slice(0, 3).join(', ')}{field.values.length > 3 ? '...' : ''}
+                                    {field.values.length} значение{field.values.length !== 1 ? 'я' : ''}: {field.values.slice(0, 3).join(', ')}{field.values.length > 3 ? '...' : ''}
                                   </p>
                                 ) : (
                                   <p className="text-xs text-muted-foreground italic">
-                                    No values set on any spools
+                                    На катушках не задано значений
                                   </p>
                                 )}
                               </div>
@@ -919,7 +910,7 @@ function SettingsContent() {
                       {/* Extra fields (if any) */}
                       {filterFields.some(f => !f.builtIn) && (
                         <div>
-                          <h4 className="text-sm font-medium mb-2 text-muted-foreground">Custom Extra Fields</h4>
+                          <h4 className="text-sm font-medium mb-2 text-muted-foreground">Пользовательские поля</h4>
                           <div className="space-y-3">
                             {filterFields.filter(f => !f.builtIn).map((field) => (
                               <div key={field.key} className="flex items-center space-x-3">
@@ -938,11 +929,11 @@ function SettingsContent() {
                                   </Label>
                                   {field.values.length > 0 ? (
                                     <p className="text-xs text-muted-foreground">
-                                      {field.values.length} value{field.values.length !== 1 ? 's' : ''}: {field.values.slice(0, 3).join(', ')}{field.values.length > 3 ? '...' : ''}
+                                      {field.values.length} значение{field.values.length !== 1 ? 'я' : ''}: {field.values.slice(0, 3).join(', ')}{field.values.length > 3 ? '...' : ''}
                                     </p>
                                   ) : (
                                     <p className="text-xs text-muted-foreground italic">
-                                      No values set on any spools
+                                      На катушках не задано значений
                                     </p>
                                   )}
                                 </div>
@@ -954,7 +945,7 @@ function SettingsContent() {
 
                       {enabledFilters.length === 0 && (
                         <p className="text-xs text-muted-foreground mt-2">
-                          No filters enabled. Only the search box will be shown.
+                          Фильтры не включены. Будет отображаться только поле поиска.
                         </p>
                       )}
                     </div>
@@ -971,14 +962,14 @@ function SettingsContent() {
               <Card>
                 <CardHeader>
                   <div className="flex items-center gap-2">
-                    <CardTitle>Low Filament Alerts</CardTitle>
+                    <CardTitle>Уведомления о низком запасе filament</CardTitle>
                     {activeAlerts.length > 0 && (
                       <Badge variant="destructive">{activeAlerts.length}</Badge>
                     )}
                   </div>
                   <CardDescription>
-                    Get notified when you&apos;re down to your last spool of a filament type and it&apos;s running low.
-                    Alerts are checked after each print and sent as Home Assistant persistent notifications.
+                    Получайте уведомления, когда у вас остаётся последняя катушка определённого типа filament и её запас на исходе.
+                    Уведомления проверяются после каждой печати и отправляются как постоянные уведомления Home Assistant.
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -991,7 +982,7 @@ function SettingsContent() {
                       }
                     />
                     <Label htmlFor="alerts-enabled" className="cursor-pointer">
-                      Enable low filament alerts
+                      Включить уведомления о низком запасе filament
                     </Label>
                   </div>
 
@@ -999,7 +990,7 @@ function SettingsContent() {
                     <div className="space-y-4 pl-6">
                       {/* Threshold type */}
                       <div className="space-y-2">
-                        <Label className="text-sm font-medium">Threshold type</Label>
+                        <Label className="text-sm font-medium">Тип порога</Label>
                         <div className="space-y-2">
                           <div className="flex items-center space-x-2">
                             <input
@@ -1012,7 +1003,7 @@ function SettingsContent() {
                               className="h-4 w-4"
                             />
                             <Label htmlFor="threshold-percentage" className="cursor-pointer text-sm">
-                              Percentage remaining
+                              Процент остатка
                             </Label>
                           </div>
                           <div className="flex items-center space-x-2">
@@ -1026,7 +1017,7 @@ function SettingsContent() {
                               className="h-4 w-4"
                             />
                             <Label htmlFor="threshold-grams" className="cursor-pointer text-sm">
-                              Absolute weight (grams)
+                              Абсолютный вес (граммы)
                             </Label>
                           </div>
                         </div>
@@ -1035,7 +1026,7 @@ function SettingsContent() {
                       {/* Threshold value */}
                       <div className="space-y-2">
                         <Label htmlFor="threshold-value" className="text-sm font-medium">
-                          Alert when below {alertConfig.thresholdType === 'percentage' ? '(%)' : '(grams)'}
+                          Уведомлять, когда ниже {alertConfig.thresholdType === 'percentage' ? '(%)' : '(граммов)'}
                         </Label>
                         <Input
                           id="threshold-value"
@@ -1052,7 +1043,7 @@ function SettingsContent() {
 
                       {/* Grouping strategy */}
                       <div className="space-y-2">
-                        <Label className="text-sm font-medium">Group spools by</Label>
+                        <Label className="text-sm font-medium">Группировать катушки по</Label>
                         <div className="space-y-2">
                           <div className="flex items-start space-x-2">
                             <input
@@ -1069,17 +1060,17 @@ function SettingsContent() {
                             />
                             <div>
                               <Label htmlFor="group-material" className="cursor-pointer text-sm">
-                                Material
+                                Материал
                               </Label>
                               <p className="text-xs text-muted-foreground">
-                                Alert when all PLA spools are low, all PETG spools are low, etc.
+                                Уведомлять, когда все катушки PLA или PETG на исходе и т.д.
                               </p>
                             </div>
                           </div>
                           <div className="flex items-start space-x-2">
                             <input
                               type="radio"
-                              id="group-material-color"
+                              id="group-material-name"
                               name="groupingStrategy"
                               value="material_name"
                               checked={alertConfig.groupingStrategy === 'material_name'}
@@ -1090,11 +1081,11 @@ function SettingsContent() {
                               className="h-4 w-4 mt-0.5"
                             />
                             <div>
-                              <Label htmlFor="group-material-color" className="cursor-pointer text-sm">
-                                Material + Name
+                              <Label htmlFor="group-material-name" className="cursor-pointer text-sm">
+                                Материал + Название
                               </Label>
                               <p className="text-xs text-muted-foreground">
-                                Alert per filament product (e.g. all HF Black PETG spools, all Matte White PLA spools).
+                                Уведомлять по каждому продукту filament (например, все катушки HF Black PETG, все матовые белые PLA).
                               </p>
                             </div>
                           </div>
@@ -1113,10 +1104,10 @@ function SettingsContent() {
                             />
                             <div>
                               <Label htmlFor="group-material-vendor-name" className="cursor-pointer text-sm">
-                                Material + Name + Vendor
+                                Материал + Название + Производитель
                               </Label>
                               <p className="text-xs text-muted-foreground">
-                                Like Material + Name, but distinguishes between vendors (e.g. Bambu Lab HF Black PETG vs Polymaker PolyLite Black PETG).
+                                Как «Материал + Название», но с разделением по производителям (например, Bambu Lab HF Black PETG против Polymaker PolyLite Black PETG).
                               </p>
                             </div>
                           </div>
@@ -1125,7 +1116,7 @@ function SettingsContent() {
 
                       {/* Monitored groups */}
                       <div className="space-y-2">
-                        <Label className="text-sm font-medium">Monitor</Label>
+                        <Label className="text-sm font-medium">Отслеживать</Label>
                         <div className="space-y-2">
                           <div className="flex items-center space-x-2">
                             <input
@@ -1137,7 +1128,7 @@ function SettingsContent() {
                               className="h-4 w-4"
                             />
                             <Label htmlFor="monitor-all" className="cursor-pointer text-sm">
-                              All groups
+                              Все группы
                             </Label>
                           </div>
                           <div className="flex items-center space-x-2">
@@ -1150,7 +1141,7 @@ function SettingsContent() {
                               className="h-4 w-4"
                             />
                             <Label htmlFor="monitor-selected" className="cursor-pointer text-sm">
-                              Selected groups only
+                              Только выбранные группы
                             </Label>
                           </div>
                         </div>
@@ -1158,7 +1149,7 @@ function SettingsContent() {
                         {alertConfig.monitoredGroups !== undefined && (
                           <div className="ml-6 space-y-2 pt-1">
                             {availableGroups.length === 0 ? (
-                              <p className="text-xs text-muted-foreground italic">No spool groups found.</p>
+                              <p className="text-xs text-muted-foreground italic">Группы катушек не найдены.</p>
                             ) : (
                               availableGroups.map((group) => (
                                 <div key={group.groupKey} className="flex items-center space-x-2">
@@ -1189,7 +1180,7 @@ function SettingsContent() {
                                       {group.groupLabel}
                                     </Label>
                                     <span className="text-xs text-muted-foreground">
-                                      ({group.spoolCount} spool{group.spoolCount !== 1 ? 's' : ''})
+                                      ({group.spoolCount} катушка{group.spoolCount !== 1 ? 'и' : ''})
                                     </span>
                                   </div>
                                 </div>
@@ -1203,7 +1194,7 @@ function SettingsContent() {
                         onClick={saveAlertSettings}
                         disabled={savingAlerts}
                       >
-                        {savingAlerts ? 'Saving...' : 'Save Alert Settings'}
+                        {savingAlerts ? 'Сохранение...' : 'Сохранить настройки уведомлений'}
                       </Button>
                     </div>
                   )}
@@ -1215,7 +1206,7 @@ function SettingsContent() {
                       variant="outline"
                       size="sm"
                     >
-                      {savingAlerts ? 'Saving...' : 'Save'}
+                      {savingAlerts ? 'Сохранение...' : 'Сохранить'}
                     </Button>
                   )}
                 </CardContent>
@@ -1226,21 +1217,21 @@ function SettingsContent() {
           {/* QR Code Base URL */}
           <Card>
             <CardHeader>
-              <CardTitle>QR Code / NFC URL</CardTitle>
+              <CardTitle>URL QR-кода / NFC</CardTitle>
               <CardDescription>
-                Override the base URL used in generated QR code labels and NFC tags.
-                Leave empty to use the current browser URL automatically.
+                Переопределите базовый URL, используемый в сгенерированных QR-кодах и NFC-метках.
+                Оставьте пустым, чтобы автоматически использовать текущий URL браузера.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="space-y-2">
-                <Label htmlFor="qrBaseUrl">Base URL</Label>
+                <Label htmlFor="qrBaseUrl">Базовый URL</Label>
                 <div className="flex gap-2">
                   <Input
                     id="qrBaseUrl"
                     value={qrBaseUrl}
                     onChange={(e) => setQrBaseUrl(e.target.value)}
-                    placeholder="e.g., http://192.168.1.100:3000"
+                    placeholder="например, http://192.168.1.100:3000"
                   />
                   <Button
                     onClick={async () => {
@@ -1252,21 +1243,21 @@ function SettingsContent() {
                           body: JSON.stringify({ type: 'qr_base_url', url: qrBaseUrl }),
                         });
                         if (!res.ok) throw new Error();
-                        toast.success(qrBaseUrl.trim() ? 'QR base URL saved' : 'QR base URL cleared');
+                        toast.success(qrBaseUrl.trim() ? 'Базовый URL QR-кода сохранён' : 'Базовый URL QR-кода очищен');
                       } catch {
-                        toast.error('Failed to save QR base URL');
+                        toast.error('Не удалось сохранить базовый URL QR-кода');
                       } finally {
                         setSavingQrUrl(false);
                       }
                     }}
                     disabled={savingQrUrl}
                   >
-                    {savingQrUrl ? 'Saving...' : 'Save'}
+                    {savingQrUrl ? 'Сохранение...' : 'Сохранить'}
                   </Button>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Useful when accessing SpoolmanSync through a reverse proxy or custom domain.
-                  QR codes will link to this URL instead of the browser address bar URL.
+                  Полезно при доступе к SpoolmanSync через обратный прокси или пользовательский домен.
+                  QR-коды будут ссылаться на этот URL вместо URL из адресной строки браузера.
                 </p>
               </div>
             </CardContent>

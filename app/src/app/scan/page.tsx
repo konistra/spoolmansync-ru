@@ -148,9 +148,9 @@ function ScanPageContent() {
       {/* QR Scanner */}
       <Card>
         <CardHeader>
-          <CardTitle>Scan QR Code</CardTitle>
+          <CardTitle>Сканировать QR-код</CardTitle>
           <CardDescription>
-            Point your camera at a Spoolman QR code or Spoolman barcode
+            Наведите камеру на QR-код или штрихкод Spoolman
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -161,23 +161,23 @@ function ScanPageContent() {
         </CardContent>
       </Card>
 
-      {/* Manual Entry */}
+      {/* Ручной ввод */}
       <Card>
         <CardHeader>
-          <CardTitle>Manual Entry</CardTitle>
+          <CardTitle>Ручной ввод</CardTitle>
           <CardDescription>
-            Enter a Spoolman barcode or spool ID manually
+            Введите штрихкод Spoolman или ID катушки вручную
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleManualSubmit} className="flex gap-2">
             <Input
-              placeholder="Enter spool ID, Spoolman barcode, or web+spoolman:s-123"
+              placeholder="Введите ID катушки, штрихкод Spoolman или web+spoolman:s-123"
               value={manualBarcode}
               onChange={(e) => setManualBarcode(e.target.value)}
             />
             <Button type="submit" disabled={loading || !manualBarcode.trim()}>
-              {loading ? 'Looking up...' : 'Look up'}
+              {loading ? 'Looking up...' : 'Найти'}
             </Button>
           </form>
         </CardContent>
@@ -186,9 +186,9 @@ function ScanPageContent() {
       {/* QR Code Generator */}
       <Card>
         <CardHeader>
-          <CardTitle>Print QR Labels</CardTitle>
+          <CardTitle>Печать QR-меток</CardTitle>
           <CardDescription>
-            Print QR code labels for any paper or label size. Select multiple spools and customize the layout.
+            Печатайте QR-метки для любого размера бумаги или этикетки. Выберите несколько катушек и настройте макет.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -200,7 +200,7 @@ function ScanPageContent() {
             <QRCodeGenerator spools={allSpools} directAccessPort={directAccessPort} qrBaseUrl={qrBaseUrl} />
           ) : (
             <p className="text-sm text-muted-foreground text-center py-4">
-              No spools found. Add spools to Spoolman to generate QR labels.
+              Катушки не найдены. Добавьте катушки в Spoolman для создания QR-меток.
             </p>
           )}
         </CardContent>
@@ -209,9 +209,9 @@ function ScanPageContent() {
       {/* NFC Tag Writer */}
       <Card>
         <CardHeader>
-          <CardTitle>Write NFC Tag</CardTitle>
+          <CardTitle>Запись NFC-метки</CardTitle>
           <CardDescription>
-            Write a spool link to an NFC sticker tag. Tap the tag with your phone to quickly assign to an AMS tray.
+            Запишите ссылку на катушку в NFC-стикер. Прикоснитесь телефоном к метке для быстрого назначения в лоток AMS.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -223,7 +223,7 @@ function ScanPageContent() {
             <NFCWriter spools={allSpools} directAccessPort={directAccessPort} qrBaseUrl={qrBaseUrl} />
           ) : (
             <p className="text-sm text-muted-foreground text-center py-4">
-              No spools found. Add spools to Spoolman to write NFC tags.
+              Катушки не найдены. Добавьте катушки в Spoolman для записи NFC-меток.
             </p>
           )}
         </CardContent>
@@ -246,7 +246,7 @@ export default function ScanPage() {
     <div className="min-h-screen bg-background">
       <Nav />
       <main className="w-full max-w-2xl mx-auto py-6 px-3 sm:px-4 md:px-6">
-        <h1 className="text-xl sm:text-2xl font-bold mb-6">Scan Spool</h1>
+        <h1 className="text-xl sm:text-2xl font-bold mb-6">Сканирование катушки</h1>
         <Suspense fallback={
           <div className="flex items-center justify-center h-64">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />

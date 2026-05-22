@@ -233,7 +233,7 @@ export default function Dashboard() {
       }
 
       toast.success('Spool assigned successfully');
-      fetchData(); // Refresh data
+      fetchData(); // Обновить data
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to assign spool');
     }
@@ -252,7 +252,7 @@ export default function Dashboard() {
       }
 
       toast.success('Spool unassigned');
-      await fetchData(); // Refresh data - await to ensure UI updates
+      await fetchData(); // Обновить data - await to ensure UI updates
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to unassign spool');
     }
@@ -300,22 +300,22 @@ export default function Dashboard() {
         <main className="w-full max-w-7xl mx-auto py-6 px-3 sm:px-4 md:px-6">
           <Card>
             <CardHeader>
-              <CardTitle>Welcome to SpoolmanSync</CardTitle>
+              <CardTitle>Добро пожаловать в SpoolmanSync</CardTitle>
               <CardDescription>
-                Connect your Home Assistant and Spoolman to get started.
+                Подключите ваш Home Assistant и Spoolman, чтобы начать.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center gap-4">
                 <div className={`h-3 w-3 rounded-full ${settings?.homeassistant ? 'bg-green-500' : 'bg-gray-300'}`} />
-                <span>Home Assistant: {settings?.homeassistant ? 'Connected' : 'Not configured'}</span>
+                <span>Home Assistant: {settings?.homeassistant ? 'Connected' : 'Не настроен'}</span>
               </div>
               <div className="flex items-center gap-4">
                 <div className={`h-3 w-3 rounded-full ${settings?.spoolman ? 'bg-green-500' : 'bg-gray-300'}`} />
-                <span>Spoolman: {settings?.spoolman ? 'Connected' : 'Not configured'}</span>
+                <span>Spoolman: {settings?.spoolman ? 'Connected' : 'Не настроен'}</span>
               </div>
               <Link href="/settings">
-                <Button>Configure Settings</Button>
+                <Button>Настроить параметры</Button>
               </Link>
             </CardContent>
           </Card>
@@ -329,16 +329,16 @@ export default function Dashboard() {
       <Nav />
       <main className="w-full max-w-7xl mx-auto py-6 px-3 sm:px-4 md:px-6">
         <div className="mb-4 sm:mb-6 flex items-center justify-between gap-2">
-          <h1 className="text-xl sm:text-2xl font-bold">Dashboard</h1>
+          <h1 className="text-xl sm:text-2xl font-bold">Панель управления</h1>
           <Button variant="outline" size="sm" onClick={fetchData}>
-            Refresh
+            Обновить
           </Button>
         </div>
 
         {printers.length === 0 ? (
           <Card>
             <CardHeader>
-              <CardTitle>No Printers Found</CardTitle>
+              <CardTitle>Принтеры не найдены</CardTitle>
               <CardDescription>
                 Make sure your Bambu Lab printer is connected to Home Assistant via the ha-bambulab integration and added in SpoolmanSync Settings.
               </CardDescription>
@@ -389,7 +389,7 @@ export default function Dashboard() {
                     d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
                   />
                 </svg>
-                <AlertTitle>Assign Spools to Trays</AlertTitle>
+                <AlertTitle>Назначить катушки на лотки</AlertTitle>
                 <AlertDescription>
                   <div className="space-y-1">
                     {unassignedTrays.map((tray, i) => {
@@ -451,7 +451,7 @@ export default function Dashboard() {
                           <strong>{alert.groupLabel}</strong>
                           {' '}&mdash;{' '}
                           {alert.spoolCount === 1
-                            ? `${alert.lowestRemaining}g remaining`
+                            ? `${alert.lowestRemaining}g осталось`
                             : `${alert.spoolCount} spools, lowest: ${alert.lowestRemaining}g`
                           }
                           {alert.lowestPercentage > 0 && ` (${alert.lowestPercentage}%)`}

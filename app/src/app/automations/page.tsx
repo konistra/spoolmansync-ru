@@ -157,7 +157,7 @@ export default function AutomationsPage() {
   // Generate config for manual mode
   const generateConfig = async () => {
     if (!webhookUrl.trim()) {
-      toast.error('Please enter the SpoolmanSync URL');
+      toast.error('Please enter the URL SpoolmanSync');
       return;
     }
     setLoading(true);
@@ -419,15 +419,15 @@ export default function AutomationsPage() {
     <div className="min-h-screen bg-background">
       <Nav />
       <main className="w-full max-w-4xl mx-auto py-6 px-3 sm:px-4 md:px-6">
-        <h1 className="text-xl sm:text-2xl font-bold mb-6">Automations Setup</h1>
+        <h1 className="text-xl sm:text-2xl font-bold mb-6">Настройка автоматизаций</h1>
 
         <div className="space-y-6">
           {/* Status Card */}
           <Card>
             <CardHeader>
-              <CardTitle>Home Assistant Automations</CardTitle>
+              <CardTitle>Автоматизации Home Assistant</CardTitle>
               <CardDescription>
-                Configure Home Assistant to automatically sync tray changes with Spoolman
+                Настройте Home Assistant для автоматической синхронизации изменений лотков с Spoolman
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -444,7 +444,7 @@ export default function AutomationsPage() {
 
               <div className="space-y-2">
                 <label htmlFor="webhookUrl" className="text-sm font-medium">
-                  SpoolmanSync URL
+                  URL SpoolmanSync
                 </label>
                 <input
                   id="webhookUrl"
@@ -455,7 +455,7 @@ export default function AutomationsPage() {
                   className="w-full px-3 py-2 border rounded-md bg-background text-sm"
                 />
                 <p className="text-xs text-muted-foreground">
-                  The URL where Home Assistant can reach this SpoolmanSync instance.
+                  URL, по которому Home Assistant может получить доступ к этому экземпляру SpoolmanSync.
                   {webhookUrl.includes('localhost') && (
                     <span className="text-amber-600 dark:text-amber-400 block mt-1">
                       Note: &quot;localhost&quot; only works if Home Assistant is on the same machine.
@@ -466,7 +466,7 @@ export default function AutomationsPage() {
               </div>
 
               <Button onClick={generateConfig} disabled={loading || !haConnected || !webhookUrl.trim()}>
-                {loading ? 'Generating...' : 'Generate Configuration'}
+                {loading ? 'Generating...' : 'Сгенерировать конфигурацию'}
               </Button>
             </CardContent>
           </Card>

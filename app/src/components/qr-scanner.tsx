@@ -132,11 +132,11 @@ export function QRScanner({ onScan, onError }: QRScannerProps) {
       <div className="flex justify-center gap-2">
         {!isScanning ? (
           <Button onClick={startScanning}>
-            Start Scanning
+            Начать сканирование
           </Button>
         ) : (
           <Button variant="destructive" onClick={stopScanning}>
-            Stop Scanning
+            Остановить сканирование
           </Button>
         )}
       </div>

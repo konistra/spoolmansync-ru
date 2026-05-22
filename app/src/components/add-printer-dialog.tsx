@@ -658,7 +658,7 @@ export function AddPrinterDialog({ open, onOpenChange, onSuccess }: AddPrinterDi
         <DialogHeader>
           <DialogTitle>
             {step === 'brand'
-              ? 'Add Printer'
+              ? 'Добавить принтер'
               : step === 'select'
                 ? 'Add Bambu Lab Printer'
                 : getStepTitle(flowState?.step_id, selectedBrand)}
@@ -769,11 +769,11 @@ export function AddPrinterDialog({ open, onOpenChange, onSuccess }: AddPrinterDi
 
         <DialogFooter className={step === 'brand' ? 'sm:justify-center' : ''}>
           <Button variant="outline" onClick={step === 'brand' ? handleClose : step === 'select' ? () => { setStep('brand'); setSelectedBrand(null); } : handleClose} disabled={loading}>
-            {step === 'select' ? 'Back' : 'Cancel'}
+            {step === 'select' ? 'Назад' : 'Отмена'}
           </Button>
           {step === 'flow' && flowState?.type === 'form' && (
             <Button type="submit" form="printer-setup-form" disabled={loading}>
-              {loading ? 'Processing...' : 'Continue'}
+              {loading ? 'Processing...' : 'Продолжить'}
             </Button>
           )}
         </DialogFooter>
