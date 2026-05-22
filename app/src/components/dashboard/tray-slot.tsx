@@ -227,16 +227,16 @@ export function TraySlot({ tray, assignedSpool, spools, onAssign, onUnassign, mi
               {/* Info: material and vendor stacked */}
               <div className="space-y-1 mb-2 flex-1">
                 <div className="flex items-baseline gap-1">
-                  <span className="text-[9px] font-medium text-muted-foreground uppercase">Material:</span>
+                  <span className="text-[9px] font-medium text-muted-foreground uppercase">Материал:</span>
                   <span className="text-xs font-medium">{assignedSpool.filament.material}</span>
                 </div>
                 <div className="flex items-baseline gap-1">
-                  <span className="text-[9px] font-medium text-muted-foreground uppercase">Vendor:</span>
+                  <span className="text-[9px] font-medium text-muted-foreground uppercase">Производитель:</span>
                   <span className="text-xs font-medium truncate">{assignedSpool.filament.vendor?.name || 'Unknown'}</span>
                 </div>
                 {showLocation && assignedSpool.location && (
                   <div className="flex items-baseline gap-1">
-                    <span className="text-[9px] font-medium text-muted-foreground uppercase">Location:</span>
+                    <span className="text-[9px] font-medium text-muted-foreground uppercase">Расположение:</span>
                     <span className="text-xs font-medium truncate">{assignedSpool.location}</span>
                   </div>
                 )}
@@ -249,7 +249,7 @@ export function TraySlot({ tray, assignedSpool, spools, onAssign, onUnassign, mi
                 </span>
                 {showWeight && (
                   <Badge variant="secondary" className="text-[10px] px-1.5 py-0 whitespace-nowrap">
-                    {Math.round(displayWeight)}g<span className="hidden min-[320px]:inline"> Remaining</span>
+                    {Math.round(displayWeight)}g<span className="hidden min-[320px]:inline"> Остаток</span>
                   </Badge>
                 )}
               </div>
@@ -261,10 +261,10 @@ export function TraySlot({ tray, assignedSpool, spools, onAssign, onUnassign, mi
                 className="h-8 w-8 rounded-full border-2 border-dashed border-muted-foreground/30 mb-2"
               />
               <p className="text-xs text-muted-foreground">
-                No spool assigned
+                Катушка не назначена
               </p>
               <p className="text-[10px] text-blue-500 dark:text-blue-400 mt-1">
-                Click to assign
+                Нажмите для назначения
               </p>
             </div>
           )}
@@ -273,10 +273,10 @@ export function TraySlot({ tray, assignedSpool, spools, onAssign, onUnassign, mi
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>
-            Assign Spool to {tray.is_external ? 'External Slot' : `Tray ${tray.tray_number}`}
+            Назначить катушку на {tray.is_external ? 'Внешний слот' : `Tray ${tray.tray_number}`}
           </DialogTitle>
           <DialogDescription>
-            Search and select a spool from your Spoolman inventory.
+            Найдите и выберите катушку из вашего инвентаря Spoolman.
           </DialogDescription>
         </DialogHeader>
 
@@ -287,11 +287,11 @@ export function TraySlot({ tray, assignedSpool, spools, onAssign, onUnassign, mi
               <span className="text-amber-500 mt-0.5">⚠️</span>
               <div className="space-y-1.5">
                 <p className="font-medium text-amber-700 dark:text-amber-300">
-                  Possible wrong spool assigned
+                  Возможно, назначена неверная катушка
                 </p>
                 <div className="text-xs text-amber-600 dark:text-amber-400 space-y-0.5">
                   <p>
-                    <span className="opacity-70">RFID reports:</span>{' '}
+                    <span className="opacity-70">RFID сообщает:</span>{' '}
                     {mismatch.printerReports.material || 'unknown material'}
                     {mismatch.printerReports.color && (
                       <span className="inline-flex items-center gap-1 ml-1">
@@ -304,7 +304,7 @@ export function TraySlot({ tray, assignedSpool, spools, onAssign, onUnassign, mi
                     )}
                   </p>
                   <p>
-                    <span className="opacity-70">Assigned spool:</span>{' '}
+                    <span className="opacity-70">Назначенная катушка:</span>{' '}
                     {mismatch.spoolmanHas.material}
                     <span className="inline-flex items-center gap-1 ml-1">
                       <span
@@ -316,7 +316,7 @@ export function TraySlot({ tray, assignedSpool, spools, onAssign, onUnassign, mi
                   </p>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Select the correct spool below.
+                  Выберите правильную катушку ниже.
                 </p>
               </div>
             </div>
@@ -337,10 +337,10 @@ export function TraySlot({ tray, assignedSpool, spools, onAssign, onUnassign, mi
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="id">Sort: ID</SelectItem>
-                    <SelectItem value="name">Sort: Name</SelectItem>
-                    <SelectItem value="material">Sort: Material</SelectItem>
-                    <SelectItem value="vendor">Sort: Vendor</SelectItem>
+                    <SelectItem value="id">Сортировать: ID</SelectItem>
+                    <SelectItem value="name">Сортировать: Название</SelectItem>
+                    <SelectItem value="material">Сортировать: Материал</SelectItem>
+                    <SelectItem value="vendor">Сортировать: Производитель</SelectItem>
                   </SelectContent>
                 </Select>
               }
@@ -352,18 +352,18 @@ export function TraySlot({ tray, assignedSpool, spools, onAssign, onUnassign, mi
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="id">Sort: ID</SelectItem>
-                  <SelectItem value="name">Sort: Name</SelectItem>
-                  <SelectItem value="material">Sort: Material</SelectItem>
-                  <SelectItem value="vendor">Sort: Vendor</SelectItem>
+                  <SelectItem value="id">Сортировать: ID</SelectItem>
+                  <SelectItem value="name">Сортировать: Название</SelectItem>
+                  <SelectItem value="material">Сортировать: Материал</SelectItem>
+                  <SelectItem value="vendor">Сортировать: Производитель</SelectItem>
                 </SelectContent>
               </Select>
             </div>
           )}
-          <CommandInput placeholder="Search spools by name, vendor, material, ID, or any field..." />
+          <CommandInput placeholder="Поиск катушек по названию, производителю, материалу, ID или любому другому полю..." />
           <CommandList className="max-h-[300px]">
-            <CommandEmpty>No spools found matching your filters.</CommandEmpty>
-            <CommandGroup heading={`Available Spools (${filteredSpools.length})`}>
+            <CommandEmpty>Катушки не найдены. Попробуйте изменить фильтры.</CommandEmpty>
+            <CommandGroup heading={`Доступные катушки (${filteredSpools.length})`}>
               {filteredSpools.map((spool) => (
                 <CommandItem
                   key={spool.id}
@@ -387,7 +387,7 @@ export function TraySlot({ tray, assignedSpool, spools, onAssign, onUnassign, mi
                     #{spool.id}
                   </span>
                   {assignedSpool?.id === spool.id && (
-                    <Badge variant="outline" className="ml-1">Current</Badge>
+                    <Badge variant="outline" className="ml-1">Текущая</Badge>
                   )}
                 </CommandItem>
               ))}
@@ -396,7 +396,7 @@ export function TraySlot({ tray, assignedSpool, spools, onAssign, onUnassign, mi
         </Command>
         <div className="flex justify-end">
           <Button variant="ghost" onClick={() => setOpen(false)}>
-            Cancel
+            Отмена
           </Button>
         </div>
       </DialogContent>

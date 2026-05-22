@@ -530,21 +530,21 @@ export default function AutomationsPage() {
                 </CardContent>
               </Card>
 
-              {/* Setup Instructions */}
+              {/* Инструкция по настройке */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Setup Instructions</CardTitle>
+                  <CardTitle>Инструкция по настройке</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <ol className="list-decimal list-inside space-y-2 text-sm">
                     <li>Copy the <strong>configuration.yaml</strong> content above and add it to your Home Assistant <code>configuration.yaml</code> file</li>
                     <li>Copy the <strong>automations.yaml</strong> content above and add it to your Home Assistant <code>automations.yaml</code> file</li>
-                    <li>Restart Home Assistant or reload automations</li>
-                    <li>Click &quot;Mark as Configured&quot; below</li>
+                    <li>Перезапустите Home Assistant или перезагрузите автоматизации</li>
+                    <li>Click &quot;Отметить как настроенное&quot; below</li>
                   </ol>
 
                   <Button onClick={registerAutomations} disabled={loading}>
-                    Mark as Configured
+                    Отметить как настроенное
                   </Button>
                 </CardContent>
               </Card>

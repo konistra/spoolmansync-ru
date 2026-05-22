@@ -430,7 +430,7 @@ export function QRCodeGenerator({ spools, directAccessPort, qrBaseUrl }: QRCodeG
       ) : (
         <div className="flex flex-col items-center justify-center py-8 text-center text-muted-foreground">
           <QrCode className="h-12 w-12 mb-3 opacity-50" />
-          <p className="text-sm">Select spools above to preview labels</p>
+          <p className="text-sm">Выберите катушки выше для предпросмотра этикеток</p>
         </div>
       )}
 

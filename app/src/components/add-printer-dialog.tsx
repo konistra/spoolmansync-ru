@@ -665,7 +665,7 @@ export function AddPrinterDialog({ open, onOpenChange, onSuccess }: AddPrinterDi
           </DialogTitle>
           <DialogDescription>
             {step === 'brand'
-              ? 'Select your printer brand'
+              ? 'Выберите марку принтера'
               : step === 'select'
                 ? 'Choose how to connect your printer'
                 : getStepDescription(flowState?.step_id, connectionMode, selectedBrand)}

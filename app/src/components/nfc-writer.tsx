@@ -255,17 +255,17 @@ export function NFCWriter({ spools, directAccessPort, qrBaseUrl }: NFCWriterProp
     return (
       <Alert>
         <Smartphone className="h-4 w-4" />
-        <AlertTitle>Web NFC Not Available</AlertTitle>
+        <AlertTitle>Web NFC не поддерживается</AlertTitle>
         <AlertDescription>
           <p className="mb-2">
             Web NFC is only supported on <strong>Android</strong> with certain browsers
             (Chrome, Edge, Opera, Samsung Internet).
           </p>
           <p className="text-xs text-muted-foreground mb-3">
-            iOS, Firefox, and Brave do not support Web NFC. Use QR codes or a dedicated NFC writing app instead.
+            iOS, Firefox и Brave не поддерживают Web NFC. Используйте QR-коды или специальное приложение для записи NFC.
           </p>
           <p className="text-xs text-muted-foreground">
-            To write manually with another app, use this URL format:
+            Для ручной записи с помощью другого приложения используйте этот формат URL:
           </p>
           <p className="text-xs font-mono bg-muted p-2 rounded mt-1 break-all select-all">
             {baseUrl}<span className="text-primary">[SPOOL_ID]</span>
