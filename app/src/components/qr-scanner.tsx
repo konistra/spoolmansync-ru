@@ -46,7 +46,7 @@ export function QRScanner({ onScan, onError }: QRScannerProps) {
       return null;
     } catch (err) {
       console.error('Error getting cameras:', err);
-      onError?.('Unable to access camera. Please check permissions.');
+      onError?.('Не удалось получить доступ к камере. Пожалуйста, проверьте разрешения.');
       return null;
     }
   };
@@ -57,7 +57,7 @@ export function QRScanner({ onScan, onError }: QRScannerProps) {
     // Load cameras on first scan attempt (this is when camera permission is requested)
     const cameraId = await loadCameras();
     if (!cameraId) {
-      onError?.('No cameras found. Please ensure camera permissions are granted.');
+      onError?.('Камеры не найдены. Убедитесь, что разрешения на использование камеры предоставлены.');
       return;
     }
 
@@ -83,7 +83,7 @@ export function QRScanner({ onScan, onError }: QRScannerProps) {
       setIsScanning(true);
     } catch (err) {
       console.error('Error starting scanner:', err);
-      onError?.('Failed to start camera. Please check permissions.');
+      onError?.('Не удалось запустить камеру. Пожалуйста, проверьте разрешения.');
     }
   };
 
@@ -104,7 +104,7 @@ export function QRScanner({ onScan, onError }: QRScannerProps) {
       {camerasLoaded && cameras.length > 1 && (
         <div className="flex items-center gap-2">
           <label htmlFor="camera-select" className="text-sm font-medium">
-            Camera:
+            Камера:
           </label>
           <select
             id="camera-select"
@@ -115,7 +115,7 @@ export function QRScanner({ onScan, onError }: QRScannerProps) {
           >
             {cameras.map((camera) => (
               <option key={camera.id} value={camera.id}>
-                {camera.label || `Camera ${camera.id}`}
+                {camera.label || `Камера ${camera.id}`}
               </option>
             ))}
           </select>
@@ -143,7 +143,7 @@ export function QRScanner({ onScan, onError }: QRScannerProps) {
 
       {camerasLoaded && cameras.length === 0 && (
         <p className="text-center text-muted-foreground">
-          No cameras found. Please ensure camera permissions are granted.
+          Камеры не найдены. Убедитесь, что разрешения на использование камеры предоставлены.
         </p>
       )}
     </div>

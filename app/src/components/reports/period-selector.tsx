@@ -4,15 +4,15 @@ import { Button } from '@/components/ui/button';
 
 interface PeriodOption {
   label: string;
-  days: number | null; // null = all time
+  days: number | null; // null = всё время
 }
 
 const PERIODS: PeriodOption[] = [
-  { label: '7d', days: 7 },
-  { label: '30d', days: 30 },
-  { label: '90d', days: 90 },
-  { label: '1y', days: 365 },
-  { label: 'All Time', days: null },
+  { label: '7д', days: 7 },
+  { label: '30д', days: 30 },
+  { label: '90д', days: 90 },
+  { label: '1г', days: 365 },
+  { label: 'Всё время', days: null },
 ];
 
 interface PeriodSelectorProps {

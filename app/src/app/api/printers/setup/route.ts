@@ -44,7 +44,7 @@ export async function GET() {
     const client = await HomeAssistantClient.fromConnection();
     if (!client) {
       console.error('[Printers] No HA client available');
-      return NextResponse.json({ error: 'Home Assistant not connected' }, { status: 400 });
+      return NextResponse.json({ error: 'Home Assistant не подключён' }, { status: 400 });
     }
 
     // Fetch config entries for all supported printer domains
@@ -79,7 +79,7 @@ export async function GET() {
     return NextResponse.json({ entries: visibleEntries, hiddenEntries });
   } catch (error) {
     console.error('[Printers] Error getting printer entries:', error);
-    return NextResponse.json({ error: 'Failed to get printer configurations' }, { status: 500 });
+    return NextResponse.json({ error: 'Не удалось получить конфигурации принтеров' }, { status: 500 });
   }
 }
 
@@ -96,7 +96,7 @@ export async function POST(request: NextRequest) {
   try {
     const client = await HomeAssistantClient.fromConnection();
     if (!client) {
-      return NextResponse.json({ error: 'Home Assistant not connected' }, { status: 400 });
+      return NextResponse.json({ error: 'Home Assistant не подключён' }, { status: 400 });
     }
 
     const body = await request.json();
@@ -114,7 +114,7 @@ export async function POST(request: NextRequest) {
           if (msg.includes('404') || msg.includes('Invalid handler')) {
             const integrationName = targetDomain === 'ha_creality_ws' ? 'ha_creality_ws' : 'ha-bambulab';
             return NextResponse.json({
-              error: `The ${integrationName} integration is not installed in Home Assistant. Please install it via HACS first, then try again.`,
+              error: `Интеграция ${integrationName} не установлена в Home Assistant. Пожалуйста, сначала установите её через HACS, затем попробуйте снова.`,
             }, { status: 400 });
           }
           throw err;
@@ -123,7 +123,7 @@ export async function POST(request: NextRequest) {
 
       case 'continue': {
         if (!flowId) {
-          return NextResponse.json({ error: 'flowId required' }, { status: 400 });
+          return NextResponse.json({ error: 'требуется flowId' }, { status: 400 });
         }
         const result = await client.continueConfigFlow(flowId, userInput || {});
         return NextResponse.json(result);
@@ -131,7 +131,7 @@ export async function POST(request: NextRequest) {
 
       case 'abort': {
         if (!flowId) {
-          return NextResponse.json({ error: 'flowId required' }, { status: 400 });
+          return NextResponse.json({ error: 'требуется flowId' }, { status: 400 });
         }
         await client.deleteConfigFlow(flowId);
         return NextResponse.json({ success: true });
@@ -139,7 +139,7 @@ export async function POST(request: NextRequest) {
 
       case 'unhide': {
         if (!entryId) {
-          return NextResponse.json({ error: 'entryId required' }, { status: 400 });
+          return NextResponse.json({ error: 'требуется entryId' }, { status: 400 });
         }
         const hidden = await getHiddenPrinters();
         const updated = hidden.filter(h => h.entryId !== entryId);
@@ -148,11 +148,11 @@ export async function POST(request: NextRequest) {
       }
 
       default:
-        return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
+        return NextResponse.json({ error: 'Недопустимое действие' }, { status: 400 });
     }
   } catch (error) {
     console.error('Error in printer setup:', error);
-    const message = error instanceof Error ? error.message : 'Failed to process request';
+    const message = error instanceof Error ? error.message : 'Не удалось обработать запрос';
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
@@ -171,7 +171,7 @@ export async function DELETE(request: NextRequest) {
     const { entryId } = body;
 
     if (!entryId) {
-      return NextResponse.json({ error: 'entryId required' }, { status: 400 });
+      return NextResponse.json({ error: 'требуется entryId' }, { status: 400 });
     }
 
     // Look up the config entry title before hiding (for automation cleanup
@@ -217,6 +217,6 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Error removing printer:', error);
-    return NextResponse.json({ error: 'Failed to remove printer' }, { status: 500 });
+    return NextResponse.json({ error: 'Не удалось удалить принтер' }, { status: 500 });
   }
 }

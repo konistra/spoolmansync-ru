@@ -76,7 +76,7 @@ export default function AutomationsPage() {
       const data = await res.json();
       setPrinterCount(data.printers?.length || 0);
     } catch (err) {
-      console.error('Failed to check printers:', err);
+      console.error('Не удалось проверить принтеры:', err);
       setPrinterCount(0);
     } finally {
       setCheckingPrinters(false);
@@ -93,7 +93,7 @@ export default function AutomationsPage() {
       setAddonMode(data.addonMode || false);
       setConfigured(data.configured || false);
     } catch (err) {
-      console.error('Failed to fetch automations:', err);
+      console.error('Не удалось загрузить автоматизации:', err);
     }
   };
 
@@ -112,7 +112,7 @@ export default function AutomationsPage() {
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.error || 'Failed to configure automations');
+        throw new Error(data.error || 'Не удалось настроить автоматизации');
       }
 
       setConfigured(true);
@@ -121,10 +121,10 @@ export default function AutomationsPage() {
       if (data.needsRestart) {
         setShowRestartModal(true);
       } else {
-        toast.success(data.message || `Configured ${data.trayCount} trays successfully`);
+        toast.success(data.message || `Настроено ${data.trayCount} лотков успешно`);
       }
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to configure');
+      toast.error(err instanceof Error ? err.message : 'Не удалось настроить');
     } finally {
       setLoading(false);
     }
@@ -142,13 +142,13 @@ export default function AutomationsPage() {
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.error || 'Failed to restart Home Assistant');
+        throw new Error(data.error || 'Не удалось перезапустить Home Assistant');
       }
 
       setShowRestartModal(false);
-      toast.success('Home Assistant is restarting. This may take a minute.');
+      toast.success('Home Assistant перезапускается. Это может занять минуту.');
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to restart');
+      toast.error(err instanceof Error ? err.message : 'Не удалось перезапустить');
     } finally {
       setRestarting(false);
     }
@@ -157,7 +157,7 @@ export default function AutomationsPage() {
   // Generate config for manual mode
   const generateConfig = async () => {
     if (!webhookUrl.trim()) {
-      toast.error('Please enter the URL SpoolmanSync');
+      toast.error('Пожалуйста, введите URL SpoolmanSync');
       return;
     }
     setLoading(true);
@@ -177,14 +177,14 @@ export default function AutomationsPage() {
 
       if (!res.ok) {
         const error = await res.json();
-        throw new Error(error.error || 'Failed to generate config');
+        throw new Error(error.error || 'Не удалось сгенерировать конфигурацию');
       }
 
       const data = await res.json();
       setAutomationData(data);
-      toast.success(`Found ${data.trayCount} trays to monitor`);
+      toast.success(`Найдено ${data.trayCount} лотков для отслеживания`);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to generate config');
+      toast.error(err instanceof Error ? err.message : 'Не удалось сгенерировать конфигурацию');
     } finally {
       setLoading(false);
     }
@@ -214,9 +214,9 @@ export default function AutomationsPage() {
         setCopiedAutomations(true);
         setTimeout(() => setCopiedAutomations(false), 2000);
       }
-      toast.success(`${type === 'config' ? 'Configuration' : 'Automations'} copied to clipboard`);
+      toast.success(`${type === 'config' ? 'Конфигурация' : 'Автоматизации'} скопированы в буфер обмена`);
     } catch (err) {
-      toast.error('Failed to copy to clipboard');
+      toast.error('Не удалось скопировать в буфер обмена');
     }
   };
 
@@ -234,12 +234,12 @@ export default function AutomationsPage() {
         }),
       });
 
-      if (!res.ok) throw new Error('Failed to register automations');
+      if (!res.ok) throw new Error('Не удалось зарегистрировать автоматизации');
 
-      toast.success('Automations marked as configured');
+      toast.success('Автоматизации отмечены как настроенные');
       fetchRegistered();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to register');
+      toast.error(err instanceof Error ? err.message : 'Не удалось зарегистрировать');
     } finally {
       setLoading(false);
     }
@@ -251,23 +251,23 @@ export default function AutomationsPage() {
       <div className="min-h-screen bg-background">
         <Nav />
         <main className="w-full max-w-4xl mx-auto py-6 px-3 sm:px-4 md:px-6">
-          <h1 className="text-xl sm:text-2xl font-bold mb-6">Automations</h1>
+          <h1 className="text-xl sm:text-2xl font-bold mb-6">Автоматизации</h1>
 
           <div className="space-y-6">
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  Spool Tracking Automations
-                  <Badge variant="secondary">{addonMode ? 'Add-on Mode' : 'Embedded Mode'}</Badge>
+                  Автоматизации отслеживания катушек
+                  <Badge variant="secondary">{addonMode ? 'Режим дополнения' : 'Встроенный режим'}</Badge>
                 </CardTitle>
                 <CardDescription>
-                  SpoolmanSync automatically tracks filament usage and syncs with Spoolman when prints complete or trays change.
+                  SpoolmanSync автоматически отслеживает использование филамента и синхронизируется с Spoolman при завершении печати или смене лотков.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex items-center gap-4">
                   <div className={`h-3 w-3 rounded-full ${haConnected ? 'bg-green-500' : 'bg-gray-300'}`} />
-                  <span>Home Assistant: {haConnected ? 'Connected' : 'Waiting for connection...'}</span>
+                  <span>Home Assistant: {haConnected ? 'Подключён' : 'Ожидание подключения...'}</span>
                 </div>
 
                 {configured ? (
@@ -276,11 +276,11 @@ export default function AutomationsPage() {
                       <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                       </svg>
-                      <span className="font-medium">Automations Configured</span>
+                      <span className="font-medium">Автоматизации настроены</span>
                     </div>
                     <p className="text-sm text-green-600 dark:text-green-400 mt-1">
-                      SpoolmanSync is actively tracking your printer trays. When you change filaments or finish a print,
-                      the usage will be automatically synced with Spoolman.
+                      SpoolmanSync активно отслеживает лотки ваших принтеров. При смене филамента или завершении печати
+                      использование будет автоматически синхронизировано с Spoolman.
                     </p>
                   </div>
                 ) : printerCount === 0 ? (
@@ -289,41 +289,41 @@ export default function AutomationsPage() {
                       <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                       </svg>
-                      <span className="font-medium">No Printer Found</span>
+                      <span className="font-medium">Принтер не найден</span>
                     </div>
                     <p className="text-sm text-amber-600 dark:text-amber-400 mb-3">
-                      You need to add a Bambu Lab printer before configuring automations.
-                      Go to the Settings page and click &quot;Add Printer&quot; to connect your printer via Bambu Cloud or LAN mode.
+                      Вам нужно добавить принтер Bambu Lab перед настройкой автоматизаций.
+                      Перейдите на страницу Настроек и нажмите «Добавить принтер», чтобы подключить ваш принтер через Bambu Cloud или LAN.
                     </p>
                     <Button
                       variant="outline"
                       onClick={() => router.push('/settings')}
                     >
-                      Go to Settings
+                      Перейти к настройкам
                     </Button>
                   </div>
                 ) : checkingPrinters ? (
                   <div className="p-4 bg-muted rounded-lg flex items-center gap-3">
                     <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary" />
-                    <span className="text-sm text-muted-foreground">Checking for printers...</span>
+                    <span className="text-sm text-muted-foreground">Проверка принтеров...</span>
                   </div>
                 ) : (
                   <div className="p-4 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200 dark:border-blue-800">
                     <p className="text-sm text-blue-700 dark:text-blue-300 mb-3">
-                      Click the button below to automatically configure Home Assistant to track your printer&apos;s filament usage.
-                      This will:
+                      Нажмите кнопку ниже, чтобы автоматически настроить Home Assistant для отслеживания использования филамента вашего принтера.
+                      Это выполнит следующие действия:
                     </p>
                     <ul className="list-disc list-inside text-sm text-blue-600 dark:text-blue-400 space-y-1 mb-4">
-                      <li>Create automations to detect tray changes</li>
-                      <li>Track filament usage during prints</li>
-                      <li>Sync usage data with Spoolman when prints complete</li>
+                      <li>Создаст автоматизации для обнаружения смены лотков</li>
+                      <li>Будет отслеживать использование филамента во время печати</li>
+                      <li>Синхронизирует данные использования с Spoolman при завершении печати</li>
                     </ul>
                     <Button
                       onClick={autoConfigure}
                       disabled={loading || !haConnected || printerCount === 0}
                       size="lg"
                     >
-                      {loading ? 'Configuring...' : 'Configure Automations'}
+                      {loading ? 'Настройка...' : 'Настроить автоматизации'}
                     </Button>
                   </div>
                 )}
@@ -335,10 +335,10 @@ export default function AutomationsPage() {
                       onClick={autoConfigure}
                       disabled={loading}
                     >
-                      {loading ? 'Reconfiguring...' : 'Reconfigure Automations'}
+                      {loading ? 'Перенастройка...' : 'Перенастроить автоматизации'}
                     </Button>
                     <p className="text-xs text-muted-foreground mt-2">
-                      Use this if you&apos;ve added new printers or need to update the configuration.
+                      Используйте это, если вы добавили новые принтеры или нужно обновить конфигурацию.
                     </p>
                   </div>
                 )}
@@ -349,9 +349,9 @@ export default function AutomationsPage() {
             {registeredAutomations.length > 0 && (
               <Card>
                 <CardHeader>
-                  <CardTitle>Configured Tracking</CardTitle>
+                  <CardTitle>Настроенное отслеживание</CardTitle>
                   <CardDescription>
-                    These printers and trays are being monitored
+                    Эти принтеры и лотки отслеживаются
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -364,7 +364,7 @@ export default function AutomationsPage() {
                         <div>
                           <div className="font-medium">{auto.printerId}</div>
                           <div className="text-sm text-muted-foreground">
-                            {auto.trayId.split(',').length} tray(s) monitored
+                            {auto.trayId.split(',').length} лотков отслеживается
                           </div>
                         </div>
                         <span className="text-xs text-muted-foreground">
@@ -382,9 +382,9 @@ export default function AutomationsPage() {
           <Dialog open={showRestartModal} onOpenChange={setShowRestartModal}>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Home Assistant Restart Required</DialogTitle>
+                <DialogTitle>Требуется перезапуск Home Assistant</DialogTitle>
                 <DialogDescription>
-                  The automation configuration has been written successfully. Home Assistant needs to restart to load the new configuration (helper entities, templates, and automations).
+                  Конфигурация автоматизаций успешно записана. Home Assistant необходимо перезапустить для загрузки новой конфигурации (вспомогательные сущности, шаблоны и автоматизации).
                 </DialogDescription>
               </DialogHeader>
               <div className="flex flex-col sm:flex-row gap-3 pt-2">
@@ -393,7 +393,7 @@ export default function AutomationsPage() {
                   disabled={restarting}
                   className="flex-1"
                 >
-                  {restarting ? 'Restarting...' : 'Restart Now'}
+                  {restarting ? 'Перезапуск...' : 'Перезапустить сейчас'}
                 </Button>
                 <Button
                   variant="outline"
@@ -401,11 +401,11 @@ export default function AutomationsPage() {
                   disabled={restarting}
                   className="flex-1"
                 >
-                  Restart Later
+                  Перезапустить позже
                 </Button>
               </div>
               <p className="text-xs text-muted-foreground">
-                If you choose to restart later, you can restart Home Assistant from its own Settings page when convenient.
+                Если вы решите перезапустить позже, вы можете перезапустить Home Assistant со страницы Настроек, когда будет удобно.
               </p>
             </DialogContent>
           </Dialog>
@@ -433,12 +433,12 @@ export default function AutomationsPage() {
             <CardContent className="space-y-4">
               <div className="flex items-center gap-4">
                 <div className={`h-3 w-3 rounded-full ${haConnected ? 'bg-green-500' : 'bg-gray-300'}`} />
-                <span>Home Assistant: {haConnected ? 'Connected' : 'Not configured'}</span>
+                <span>Home Assistant: {haConnected ? 'Подключён' : 'Не настроен'}</span>
               </div>
 
               {registeredAutomations.length > 0 && (
                 <div className="flex items-center gap-4">
-                  <Badge variant="secondary">{registeredAutomations.length} automations registered</Badge>
+                  <Badge variant="secondary">{registeredAutomations.length} автоматизаций зарегистрировано</Badge>
                 </div>
               )}
 
@@ -458,15 +458,15 @@ export default function AutomationsPage() {
                   URL, по которому Home Assistant может получить доступ к этому экземпляру SpoolmanSync.
                   {webhookUrl.includes('localhost') && (
                     <span className="text-amber-600 dark:text-amber-400 block mt-1">
-                      Note: &quot;localhost&quot; only works if Home Assistant is on the same machine.
-                      Use your machine&apos;s IP address (e.g., 192.168.x.x) if HA is elsewhere.
+                      Примечание: &quot;localhost&quot; работает только если Home Assistant на той же машине.
+                      Используйте IP-адрес вашей машины (например, 192.168.x.x), если HA находится в другом месте.
                     </span>
                   )}
                 </p>
               </div>
 
               <Button onClick={generateConfig} disabled={loading || !haConnected || !webhookUrl.trim()}>
-                {loading ? 'Generating...' : 'Сгенерировать конфигурацию'}
+                {loading ? 'Генерация...' : 'Сгенерировать конфигурацию'}
               </Button>
             </CardContent>
           </Card>
@@ -479,10 +479,10 @@ export default function AutomationsPage() {
                 <CardHeader>
                   <CardTitle className="flex items-center justify-between">
                     <span>configuration.yaml</span>
-                    <Badge>{automationData.printerCount} printer(s)</Badge>
+                    <Badge>{automationData.printerCount} принтеров</Badge>
                   </CardTitle>
                   <CardDescription>
-                    Add this to your Home Assistant <code>configuration.yaml</code> file
+                    Добавьте это в файл <code>configuration.yaml</code> вашего Home Assistant
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -496,7 +496,7 @@ export default function AutomationsPage() {
                       className="absolute top-2 right-2"
                       onClick={() => copyToClipboard(automationData.configurationYaml, 'config')}
                     >
-                      {copiedConfig ? 'Copied!' : 'Copy'}
+                      {copiedConfig ? 'Скопировано!' : 'Копировать'}
                     </Button>
                   </div>
                 </CardContent>
@@ -507,10 +507,10 @@ export default function AutomationsPage() {
                 <CardHeader>
                   <CardTitle className="flex items-center justify-between">
                     <span>automations.yaml</span>
-                    <Badge>{automationData.trayCount} trays</Badge>
+                    <Badge>{automationData.trayCount} лотков</Badge>
                   </CardTitle>
                   <CardDescription>
-                    Add this to your Home Assistant <code>automations.yaml</code> file
+                    Добавьте это в файл <code>automations.yaml</code> вашего Home Assistant
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -524,7 +524,7 @@ export default function AutomationsPage() {
                       className="absolute top-2 right-2"
                       onClick={() => copyToClipboard(automationData.automationsYaml, 'automations')}
                     >
-                      {copiedAutomations ? 'Copied!' : 'Copy'}
+                      {copiedAutomations ? 'Скопировано!' : 'Копировать'}
                     </Button>
                   </div>
                 </CardContent>
@@ -537,10 +537,10 @@ export default function AutomationsPage() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <ol className="list-decimal list-inside space-y-2 text-sm">
-                    <li>Copy the <strong>configuration.yaml</strong> content above and add it to your Home Assistant <code>configuration.yaml</code> file</li>
-                    <li>Copy the <strong>automations.yaml</strong> content above and add it to your Home Assistant <code>automations.yaml</code> file</li>
+                    <li>Скопируйте содержимое <strong>configuration.yaml</strong> выше и добавьте его в файл <code>configuration.yaml</code> вашего Home Assistant</li>
+                    <li>Скопируйте содержимое <strong>automations.yaml</strong> выше и добавьте его в файл <code>automations.yaml</code> вашего Home Assistant</li>
                     <li>Перезапустите Home Assistant или перезагрузите автоматизации</li>
-                    <li>Click &quot;Отметить как настроенное&quot; below</li>
+                    <li>Нажмите «Отметить как настроенное» ниже</li>
                   </ol>
 
                   <Button onClick={registerAutomations} disabled={loading}>
@@ -555,9 +555,9 @@ export default function AutomationsPage() {
           {registeredAutomations.length > 0 && (
             <Card>
               <CardHeader>
-                <CardTitle>Registered Automations</CardTitle>
+                <CardTitle>Зарегистрированные автоматизации</CardTitle>
                 <CardDescription>
-                  These printers and trays are being monitored
+                  Эти принтеры и лотки отслеживаются
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -570,7 +570,7 @@ export default function AutomationsPage() {
                       <div>
                         <div className="font-medium">{auto.printerId}</div>
                         <div className="text-sm text-muted-foreground">
-                          {auto.trayId.split(',').length} tray(s) monitored
+                          {auto.trayId.split(',').length} лотков отслеживается
                         </div>
                       </div>
                       <span className="text-xs text-muted-foreground">

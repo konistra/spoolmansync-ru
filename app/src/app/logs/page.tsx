@@ -24,10 +24,10 @@ interface Pagination {
 type FilterType = 'all' | 'actions' | 'tray_changes' | 'errors';
 
 const FILTER_OPTIONS: { value: FilterType; label: string; description: string }[] = [
-  { value: 'all', label: 'Все события', description: 'Show all activity' },
-  { value: 'actions', label: 'Действия', description: 'Spool assignments and usage' },
-  { value: 'tray_changes', label: 'Изменения лотков', description: 'All detected tray changes' },
-  { value: 'errors', label: 'Ошибки', description: 'Ошибки only' },
+  { value: 'all', label: 'Все события', description: 'Показать все действия' },
+  { value: 'actions', label: 'Действия', description: 'Назначения катушек и использование' },
+  { value: 'tray_changes', label: 'Изменения лотков', description: 'Все обнаруженные изменения лотков' },
+  { value: 'errors', label: 'Ошибки', description: 'Только ошибки' },
 ];
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
@@ -55,7 +55,7 @@ export default function LogsPage() {
       // Update seen IDs ref for duplicate detection in SSE
       seenLogIdsRef.current = new Set(fetchedLogs.map((log: ActivityLog) => log.id));
     } catch (err) {
-      console.error('Failed to fetch logs:', err);
+      console.error('Не удалось загрузить журнал:', err);
     } finally {
       setLoading(false);
     }
@@ -75,7 +75,7 @@ export default function LogsPage() {
 
     const startPolling = () => {
       if (pollInterval) return;
-      console.log('SSE unavailable on logs page, falling back to polling every 2s');
+      console.log('SSE недоступен на странице журнала, переключение на опрос каждые 2с');
       pollInterval = setInterval(() => {
         fetchLogs(page, filter, pageSize);
       }, 2000);
@@ -219,23 +219,23 @@ export default function LogsPage() {
   const getTypeLabel = (type: string) => {
     switch (type) {
       case 'spool_usage':
-        return 'Usage';
+        return 'Использование';
       case 'spool_change':
-        return 'Assigned';
+        return 'Назначено';
       case 'spool_assign':
-        return 'Assigned';
+        return 'Назначено';
       case 'spool_unassign':
-        return 'Unassigned';
+        return 'Снято';
       case 'tray_change_detected':
-        return 'Tray Change';
+        return 'Смена лотка';
       case 'tray_empty_detected':
-        return 'Empty Tray';
+        return 'Пустой лоток';
       case 'tag_stored':
-        return 'Tag Stored';
+        return 'Метка сохранена';
       case 'error':
-        return 'Error';
+        return 'Ошибка';
       case 'connection':
-        return 'Connection';
+        return 'Подключение';
       default:
         return type;
     }
@@ -273,7 +273,7 @@ export default function LogsPage() {
             )}
           </div>
           <Button variant="outline" onClick={() => fetchLogs(page, filter)} disabled={loading} className="w-auto self-start sm:self-auto">
-            {loading ? 'Loading...' : 'Обновить'}
+            {loading ? 'Загрузка...' : 'Обновить'}
           </Button>
         </div>
 
@@ -297,11 +297,11 @@ export default function LogsPage() {
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <CardTitle>
-                {FILTER_OPTIONS.find(o => o.value === filter)?.label || 'Activity'}
+                {FILTER_OPTIONS.find(o => o.value === filter)?.label || 'Активность'}
               </CardTitle>
               {pagination && (
                 <span className="text-sm text-muted-foreground">
-                  {pagination.total} total events
+                  {pagination.total} всего событий
                 </span>
               )}
             </div>
@@ -331,7 +331,7 @@ export default function LogsPage() {
                       {log.details && (
                         <details className="mt-1">
                           <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground">
-                            Details
+                            Подробнее
                           </summary>
                           <pre className="mt-1 p-2 bg-muted rounded text-xs overflow-x-auto">
                             {JSON.stringify(JSON.parse(log.details), null, 2)}
@@ -355,19 +355,19 @@ export default function LogsPage() {
                       onClick={() => setPage(p => Math.max(1, p - 1))}
                       disabled={page <= 1 || loading}
                     >
-                      Previous
+                      Предыдущая
                     </Button>
                   )}
                 </div>
                 <div className="flex items-center gap-4">
                   {pagination.totalPages > 1 && (
                     <span className="text-sm text-muted-foreground">
-                      Page {pagination.page} of {pagination.totalPages}
+                      Страница {pagination.page} из {pagination.totalPages}
                     </span>
                   )}
                   <div className="flex items-center gap-2">
                     <label htmlFor="pageSize" className="text-sm text-muted-foreground">
-                      Show:
+                      Показать:
                     </label>
                     <select
                       id="pageSize"
@@ -391,7 +391,7 @@ export default function LogsPage() {
                       onClick={() => setPage(p => Math.min(pagination.totalPages, p + 1))}
                       disabled={page >= pagination.totalPages || loading}
                     >
-                      Next
+                      Следующая
                     </Button>
                   )}
                 </div>
