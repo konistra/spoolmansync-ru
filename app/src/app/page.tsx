@@ -46,7 +46,7 @@ interface Settings {
 export default function Dashboard() {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [printers, setPrinters] = useState<PrinterWithSpools[]>([]);
-  const [spools, setSpools] useState<Spool[]>([]);
+  const [spools, setSpools] = useState<Spool[]>([]);
   const [lowFilamentAlerts, setLowFilamentAlerts] = useState<ActiveAlert[]>([]);
   const [automationsStale, setAutomationsStale] = useState(false);
   const [loading, setLoading] = useState(true);
