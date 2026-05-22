@@ -46,7 +46,7 @@ interface Settings {
 export default function Dashboard() {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [printers, setPrinters] = useState<PrinterWithSpools[]>([]);
-  const [spools, setSpools] = useState<Spool[]>([]);
+  const [spools, setSpools] useState<Spool[]>([]);
   const [lowFilamentAlerts, setLowFilamentAlerts] = useState<ActiveAlert[]>([]);
   const [automationsStale, setAutomationsStale] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -69,7 +69,7 @@ export default function Dashboard() {
             const printerPrefix = printers.length > 1 ? `${printer.name} > ` : '';
             const amsPrefix = printer.ams_units.length > 1 ? `${ams.name} > ` : '';
             trays.push({
-              label: `${printerPrefix}${amsPrefix}Tray ${tray.tray_number}`,
+              label: `${printerPrefix}${amsPrefix}Лоток ${tray.tray_number}`,
               name: tray.name,
               material: tray.material,
               color: tray.color,
@@ -114,7 +114,7 @@ export default function Dashboard() {
         }
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load data');
+      setError(err instanceof Error ? err.message : 'Не удалось загрузить данные');
     } finally {
       setLoading(false);
     }
@@ -139,7 +139,7 @@ export default function Dashboard() {
 
     const startPolling = () => {
       if (pollInterval) return; // Already polling
-      console.log('SSE unavailable, falling back to polling every 2s');
+      console.log('SSE недоступен, переключение на опрос каждые 2 секунды');
       pollInterval = setInterval(() => {
         fetchData();
       }, 2000);
@@ -162,13 +162,13 @@ export default function Dashboard() {
         if (data.type === 'heartbeat') return;
 
         if (data.type === 'usage') {
-          toast.info(`Filament used: ${data.deducted}g from ${data.spoolName || 'spool'}`);
+          toast.info(`Израсходовано filament: ${data.deducted} г из ${data.spoolName || 'катушки'}`);
           fetchData();
         } else if (data.type === 'assign') {
-          toast.success(`Auto-assigned ${data.spoolName || 'spool'} to tray`);
+          toast.success(`Автоматически назначено: ${data.spoolName || 'катушка'} на лоток`);
           fetchData();
         } else if (data.type === 'unassign') {
-          toast.info(`Unassigned ${data.spoolName || 'spool'} from tray`);
+          toast.info(`Назначение снято: ${data.spoolName || 'катушка'} с лотка`);
           fetchData();
         } else if (data.type === 'tray_change') {
           fetchData();
@@ -176,7 +176,7 @@ export default function Dashboard() {
           setLowFilamentAlerts(data.alerts || []);
         }
       } catch (err) {
-        console.error('Error parsing SSE message:', err);
+        console.error('Ошибка при разборе SSE-сообщения:', err);
       }
     };
 
@@ -229,13 +229,13 @@ export default function Dashboard() {
       });
 
       if (!res.ok) {
-        throw new Error('Failed to assign spool');
+        throw new Error('Не удалось назначить катушку');
       }
 
-      toast.success('Spool assigned successfully');
+      toast.success('Катушка успешно назначена');
       fetchData(); // Обновить data
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to assign spool');
+      toast.error(err instanceof Error ? err.message : 'Не удалось назначить катушку');
     }
   };
 
@@ -248,13 +248,13 @@ export default function Dashboard() {
       });
 
       if (!res.ok) {
-        throw new Error('Failed to unassign spool');
+        throw new Error('Не удалось снять назначение катушки');
       }
 
-      toast.success('Spool unassigned');
+      toast.success('Назначение катушки снято');
       await fetchData(); // Обновить data - await to ensure UI updates
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to unassign spool');
+      toast.error(err instanceof Error ? err.message : 'Не удалось снять назначение катушки');
     }
   };
 
@@ -278,12 +278,12 @@ export default function Dashboard() {
         <main className="w-full max-w-7xl mx-auto py-6 px-3 sm:px-4 md:px-6">
           <Card className="border-destructive">
             <CardHeader>
-              <CardTitle className="text-destructive">Error</CardTitle>
+              <CardTitle className="text-destructive">Ошибка</CardTitle>
             </CardHeader>
             <CardContent>
               <p>{error}</p>
               <Button onClick={fetchData} className="mt-4">
-                Retry
+                Повторить
               </Button>
             </CardContent>
           </Card>
@@ -308,11 +308,11 @@ export default function Dashboard() {
             <CardContent className="space-y-4">
               <div className="flex items-center gap-4">
                 <div className={`h-3 w-3 rounded-full ${settings?.homeassistant ? 'bg-green-500' : 'bg-gray-300'}`} />
-                <span>Home Assistant: {settings?.homeassistant ? 'Connected' : 'Не настроен'}</span>
+                <span>Home Assistant: {settings?.homeassistant ? 'Подключено' : 'Не настроен'}</span>
               </div>
               <div className="flex items-center gap-4">
                 <div className={`h-3 w-3 rounded-full ${settings?.spoolman ? 'bg-green-500' : 'bg-gray-300'}`} />
-                <span>Spoolman: {settings?.spoolman ? 'Connected' : 'Не настроен'}</span>
+                <span>Spoolman: {settings?.spoolman ? 'Подключено' : 'Не настроен'}</span>
               </div>
               <Link href="/settings">
                 <Button>Настроить параметры</Button>
@@ -340,7 +340,7 @@ export default function Dashboard() {
             <CardHeader>
               <CardTitle>Принтеры не найдены</CardTitle>
               <CardDescription>
-                Make sure your Bambu Lab printer is connected to Home Assistant via the ha-bambulab integration and added in SpoolmanSync Settings.
+                Убедитесь, что ваш принтер Bambu Lab подключён к Home Assistant через интеграцию ha-bambulab и добавлен в настройках SpoolmanSync.
               </CardDescription>
             </CardHeader>
           </Card>
@@ -362,12 +362,12 @@ export default function Dashboard() {
                     d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-2.694-.833-3.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z"
                   />
                 </svg>
-                <AlertTitle>Automations Out of Date</AlertTitle>
+                <AlertTitle>Автоматизации устарели</AlertTitle>
                 <AlertDescription>
-                  Entity IDs in Home Assistant have changed since automations were last configured.
-                  Tray change detection and filament usage tracking may not work until you reconfigure.{' '}
+                  Идентификаторы сущностей в Home Assistant изменились с момента последней настройки автоматизаций.
+                  Отслеживание смены лотков и расхода filament может не работать, пока вы не перенастроите их.{' '}
                   <Link href="/automations" className="underline hover:no-underline font-medium">
-                    Reconfigure Automations
+                    Перенастроить автоматизации
                   </Link>
                 </AlertDescription>
               </Alert>
@@ -396,10 +396,10 @@ export default function Dashboard() {
                       const details = [tray.material, tray.name].filter(Boolean).join(' - ');
                       return (
                         <div key={i}>
-                          <strong>{tray.label}</strong> has filament but no assigned spool.
+                          <strong>{tray.label}</strong> — есть filament, но катушка не назначена.
                           {details && (
                             <span>
-                              {' '}AMS reports: {details}
+                              {' '}AMS сообщает: {details}
                               {tray.color && (
                                 <span
                                   className="inline-block w-3 h-3 rounded-full ml-1 align-middle border border-border"
@@ -412,8 +412,8 @@ export default function Dashboard() {
                       );
                     })}
                     <div className="mt-1">
-                      Click on the tray card below to select which Spoolman spool is loaded.
-                      This ensures accurate filament tracking when prints complete.
+                      Нажмите на карточку лотка ниже, чтобы выбрать, какая катушка из Spoolman загружена.
+                      Это обеспечит точный учёт filament при завершении печати.
                     </div>
                   </div>
                 </AlertDescription>
@@ -436,7 +436,7 @@ export default function Dashboard() {
                     d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-2.694-.833-3.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z"
                   />
                 </svg>
-                <AlertTitle>Low Filament Stock</AlertTitle>
+                <AlertTitle>Низкий запас filament</AlertTitle>
                 <AlertDescription>
                   <div className="space-y-1">
                     {lowFilamentAlerts.map((alert) => (
@@ -451,8 +451,8 @@ export default function Dashboard() {
                           <strong>{alert.groupLabel}</strong>
                           {' '}&mdash;{' '}
                           {alert.spoolCount === 1
-                            ? `${alert.lowestRemaining}g осталось`
-                            : `${alert.spoolCount} spools, lowest: ${alert.lowestRemaining}g`
+                            ? `${alert.lowestRemaining} г осталось`
+                            : `${alert.spoolCount} катушки, минимум: ${alert.lowestRemaining} г`
                           }
                           {alert.lowestPercentage > 0 && ` (${alert.lowestPercentage}%)`}
                         </span>
@@ -460,7 +460,7 @@ export default function Dashboard() {
                     ))}
                     <div className="mt-1">
                       <Link href="/settings" className="underline hover:no-underline">
-                        Configure alerts in Settings
+                        Настроить оповещения в настройках
                       </Link>
                     </div>
                   </div>

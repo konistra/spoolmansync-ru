@@ -117,11 +117,11 @@ export function UsageBySpool({ data }: UsageBySpoolProps) {
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle>Usage by Spool</CardTitle>
+        <CardTitle>Расход по катушкам</CardTitle>
       </CardHeader>
       <CardContent>
         {data.length === 0 ? (
-          <p className="text-muted-foreground text-center py-8">No usage data</p>
+          <p className="text-muted-foreground text-center py-8">Нет данных о расходе</p>
         ) : (
           <>
             {/* Material filter */}
@@ -133,7 +133,7 @@ export function UsageBySpool({ data }: UsageBySpoolProps) {
                   className="h-7 text-xs"
                   onClick={() => setMaterialFilter(null)}
                 >
-                  All Materials
+                  Все материалы
                 </Button>
                 {materials.map((mat) => (
                   <Button
@@ -151,13 +151,13 @@ export function UsageBySpool({ data }: UsageBySpoolProps) {
 
             <Tabs defaultValue="chart">
               <TabsList>
-                <TabsTrigger value="chart">Chart</TabsTrigger>
-                <TabsTrigger value="table">Table</TabsTrigger>
+                <TabsTrigger value="chart">График</TabsTrigger>
+                <TabsTrigger value="table">Таблица</TabsTrigger>
               </TabsList>
 
               <TabsContent value="chart">
                 {chartData.length === 0 ? (
-                  <p className="text-muted-foreground text-center py-8">No spools match this filter</p>
+                  <p className="text-muted-foreground text-center py-8">Нет катушек, соответствующих фильтру</p>
                 ) : (
                   <>
                     <ResponsiveContainer width="100%" height={Math.max(200, chartData.length * 40)}>
@@ -191,7 +191,7 @@ export function UsageBySpool({ data }: UsageBySpoolProps) {
                         </defs>
                         <XAxis
                           type="number"
-                          tickFormatter={(v) => `${v}g`}
+                          tickFormatter={(v) => `${v}г`}
                           tick={tickStyle}
                           stroke={theme.border}
                         />
@@ -203,7 +203,7 @@ export function UsageBySpool({ data }: UsageBySpoolProps) {
                           stroke={theme.border}
                         />
                         <Tooltip
-                          formatter={(value) => [`${Number(value).toFixed(1)}g`, 'Used']}
+                          formatter={(value) => [`${Number(value).toFixed(1)}г`, 'Израсходовано']}
                           contentStyle={{
                             backgroundColor: 'var(--popover)',
                             border: '1px solid var(--border)',
@@ -236,7 +236,7 @@ export function UsageBySpool({ data }: UsageBySpoolProps) {
                           size="sm"
                           onClick={() => setShowAll(!showAll)}
                         >
-                          {showAll ? 'Show top 10' : `Show all ${filteredData.length} spools`}
+                          {showAll ? 'Показать топ-10' : `Показать все (${filteredData.length})`}
                         </Button>
                       </div>
                     )}
@@ -246,17 +246,17 @@ export function UsageBySpool({ data }: UsageBySpoolProps) {
 
               <TabsContent value="table">
                 {filteredData.length === 0 ? (
-                  <p className="text-muted-foreground text-center py-8">No spools match this filter</p>
+                  <p className="text-muted-foreground text-center py-8">Нет катушек, соответствующих фильтру</p>
                 ) : (
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="border-b text-left">
-                          <th className="pb-2 pr-4">Spool</th>
-                          <th className="pb-2 pr-4 hidden sm:table-cell">Material</th>
-                          <th className="pb-2 pr-4 hidden md:table-cell">Vendor</th>
-                          <th className="pb-2 pr-4 text-right">Used</th>
-                          <th className="pb-2 text-right">Prints</th>
+                          <th className="pb-2 pr-4">Катушка</th>
+                          <th className="pb-2 pr-4 hidden sm:table-cell">Материал</th>
+                          <th className="pb-2 pr-4 hidden md:table-cell">Производитель</th>
+                          <th className="pb-2 pr-4 text-right">Израсходовано</th>
+                          <th className="pb-2 text-right">Печатей</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -278,7 +278,7 @@ export function UsageBySpool({ data }: UsageBySpoolProps) {
                               {item.vendor}
                             </td>
                             <td className="py-2 pr-4 text-right font-medium">
-                              {item.totalWeight.toFixed(1)}g
+                              {item.totalWeight.toFixed(1)}г
                             </td>
                             <td className="py-2 text-right text-muted-foreground">
                               {item.eventCount}

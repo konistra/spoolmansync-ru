@@ -347,7 +347,7 @@ export function QRCodeGenerator({ spools, directAccessPort, qrBaseUrl }: QRCodeG
         <Command className="rounded-lg border relative">
           <div className="relative">
             <CommandInput
-              placeholder="Search spools by name, vendor, material, or ID..."
+              placeholder="Поиск катушек по названию, производителю, материалу или ID..."
               value={searchValue}
               onValueChange={setSearchValue}
             />

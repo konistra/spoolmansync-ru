@@ -785,7 +785,7 @@ function SettingsContent() {
                 <CardTitle>Spoolman</CardTitle>
               </div>
               <CardDescription>
-                Подключитесь к вашему экземпляру Spoolman для управления катушками filament.
+                Подключитесь к вашему экземпляру Spoolman для управления катушками филамента.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -962,13 +962,13 @@ function SettingsContent() {
               <Card>
                 <CardHeader>
                   <div className="flex items-center gap-2">
-                    <CardTitle>Уведомления о низком запасе filament</CardTitle>
+                    <CardTitle>Уведомления о низком запасе филамента</CardTitle>
                     {activeAlerts.length > 0 && (
                       <Badge variant="destructive">{activeAlerts.length}</Badge>
                     )}
                   </div>
                   <CardDescription>
-                    Получайте уведомления, когда у вас остаётся последняя катушка определённого типа filament и её запас на исходе.
+                    Получайте уведомления, когда у вас остаётся последняя катушка определённого типа филамента и её запас на исходе.
                     Уведомления проверяются после каждой печати и отправляются как постоянные уведомления Home Assistant.
                   </CardDescription>
                 </CardHeader>
@@ -982,7 +982,7 @@ function SettingsContent() {
                       }
                     />
                     <Label htmlFor="alerts-enabled" className="cursor-pointer">
-                      Включить уведомления о низком запасе filament
+                      Включить уведомления о низком запасе филамента
                     </Label>
                   </div>
 
@@ -1085,7 +1085,7 @@ function SettingsContent() {
                                 Материал + Название
                               </Label>
                               <p className="text-xs text-muted-foreground">
-                                Уведомлять по каждому продукту filament (например, все катушки HF Black PETG, все матовые белые PLA).
+                                Уведомлять по каждому продукту филамента (например, все катушки HF Black PETG, все матовые белые PLA).
                               </p>
                             </div>
                           </div>

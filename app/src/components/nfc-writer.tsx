@@ -198,7 +198,7 @@ export function NFCWriter({ spools, directAccessPort, qrBaseUrl }: NFCWriterProp
           const permissionStatus = await navigator.permissions.query({ name: 'nfc' as PermissionName });
           if (permissionStatus.state === 'denied') {
             setWriteStatus('error');
-            setErrorMessage('NFC permission is blocked. Please enable NFC permissions for this site in your browser settings.');
+            setErrorMessage('Доступ NFC заблокирован. Пожалуйста, включите разрешение NFC для этого сайта в настройках браузера.');
             return;
           }
         } catch {
@@ -221,20 +221,20 @@ export function NFCWriter({ spools, directAccessPort, qrBaseUrl }: NFCWriterProp
       setWriteStatus('error');
       if (err instanceof Error) {
         if (err.name === 'NotAllowedError') {
-          setErrorMessage('NFC permission is blocked. Please enable NFC permissions for this site in your browser settings.');
+          setErrorMessage('Доступ NFC заблокирован. Пожалуйста, включите разрешение NFC для этого сайта в настройках браузера.');
         } else if (err.name === 'NotSupportedError') {
-          setErrorMessage('NFC is not supported on this device.');
+          setErrorMessage('NFC не поддерживается на этом устройстве.');
         } else if (err.name === 'NotReadableError') {
-          setErrorMessage('Could not read the NFC tag. Make sure it\'s positioned correctly.');
+          setErrorMessage('Не удалось прочитать NFC-метку. Убедитесь, что она расположена правильно.');
         } else if (err.name === 'NetworkError') {
-          setErrorMessage('NFC transfer failed. Please try again.');
+          setErrorMessage('Ошибка передачи NFC. Пожалуйста, попробуйте снова.');
         } else if (err.name === 'AbortError') {
-          setErrorMessage('NFC operation was cancelled.');
+          setErrorMessage('Операция NFC была отменена.');
         } else {
-          setErrorMessage(err.message || 'Failed to write to NFC tag.');
+          setErrorMessage(err.message || 'Не удалось записать NFC-метку.');
         }
       } else {
-        setErrorMessage('An unknown error occurred.');
+        setErrorMessage('Произошла неизвестная ошибка.');
       }
     }
   };
@@ -258,7 +258,7 @@ export function NFCWriter({ spools, directAccessPort, qrBaseUrl }: NFCWriterProp
         <AlertTitle>Web NFC не поддерживается</AlertTitle>
         <AlertDescription>
           <p className="mb-2">
-            Web NFC is only supported on <strong>Android</strong> with certain browsers
+            Web NFC поддерживается только на <strong>Android</strong> с определёнными браузерами
             (Chrome, Edge, Opera, Samsung Internet).
           </p>
           <p className="text-xs text-muted-foreground mb-3">
@@ -268,7 +268,7 @@ export function NFCWriter({ spools, directAccessPort, qrBaseUrl }: NFCWriterProp
             Для ручной записи с помощью другого приложения используйте этот формат URL:
           </p>
           <p className="text-xs font-mono bg-muted p-2 rounded mt-1 break-all select-all">
-            {baseUrl}<span className="text-primary">[SPOOL_ID]</span>
+            {baseUrl}<span className="text-primary">[ID_КАТУШКИ]</span>
           </p>
         </AlertDescription>
       </Alert>
@@ -290,10 +290,10 @@ export function NFCWriter({ spools, directAccessPort, qrBaseUrl }: NFCWriterProp
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="id">Sort: ID</SelectItem>
-                <SelectItem value="name">Sort: Name</SelectItem>
-                <SelectItem value="material">Sort: Material</SelectItem>
-                <SelectItem value="vendor">Sort: Vendor</SelectItem>
+                <SelectItem value="id">По ID</SelectItem>
+                <SelectItem value="name">По названию</SelectItem>
+                <SelectItem value="material">По материалу</SelectItem>
+                <SelectItem value="vendor">По производителю</SelectItem>
               </SelectContent>
             </Select>
           }
@@ -305,10 +305,10 @@ export function NFCWriter({ spools, directAccessPort, qrBaseUrl }: NFCWriterProp
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="id">Sort: ID</SelectItem>
-              <SelectItem value="name">Sort: Name</SelectItem>
-              <SelectItem value="material">Sort: Material</SelectItem>
-              <SelectItem value="vendor">Sort: Vendor</SelectItem>
+              <SelectItem value="id">По ID</SelectItem>
+              <SelectItem value="name">По названию</SelectItem>
+              <SelectItem value="material">По материалу</SelectItem>
+              <SelectItem value="vendor">По производителю</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -317,13 +317,13 @@ export function NFCWriter({ spools, directAccessPort, qrBaseUrl }: NFCWriterProp
       {/* Spool Selector */}
       <Command className="rounded-lg border">
         <CommandInput
-          placeholder="Search spools by name, vendor, material, or ID..."
+          placeholder="Поиск катушек по названию, производителю, материалу или ID..."
           value={searchValue}
           onValueChange={setSearchValue}
         />
         <CommandList className="max-h-[200px]">
-          <CommandEmpty>No spools found.</CommandEmpty>
-          <CommandGroup heading={`${filteredSpools.length} spools`}>
+          <CommandEmpty>Катушки не найдены.</CommandEmpty>
+          <CommandGroup heading={`${filteredSpools.length} катушек`}>
             {filteredSpools.map((spool) => (
               <CommandItem
                 key={spool.id}
@@ -360,7 +360,7 @@ export function NFCWriter({ spools, directAccessPort, qrBaseUrl }: NFCWriterProp
                 {selectedSpool.filament.vendor?.name} {selectedSpool.filament.name}
               </p>
               <p className="text-sm text-muted-foreground">
-                {selectedSpool.filament.material} • Spool #{selectedSpool.id}
+                {selectedSpool.filament.material} • Катушка #{selectedSpool.id}
               </p>
             </div>
           </div>
@@ -369,9 +369,9 @@ export function NFCWriter({ spools, directAccessPort, qrBaseUrl }: NFCWriterProp
           {writeStatus === 'success' && (
             <Alert className="border-green-500 bg-green-500/10">
               <CheckCircle2 className="h-4 w-4 text-green-500" />
-              <AlertTitle className="text-green-500">Success!</AlertTitle>
+              <AlertTitle className="text-green-500">Успешно!</AlertTitle>
               <AlertDescription>
-                NFC tag written successfully. You can now stick it on your spool.
+                NFC-метка успешно записана. Теперь вы можете наклеить её на катушку.
               </AlertDescription>
             </Alert>
           )}
@@ -379,7 +379,7 @@ export function NFCWriter({ spools, directAccessPort, qrBaseUrl }: NFCWriterProp
           {writeStatus === 'error' && (
             <Alert variant="destructive">
               <XCircle className="h-4 w-4" />
-              <AlertTitle>Write Failed</AlertTitle>
+              <AlertTitle>Ошибка записи</AlertTitle>
               <AlertDescription>{errorMessage}</AlertDescription>
             </Alert>
           )}
@@ -394,12 +394,12 @@ export function NFCWriter({ spools, directAccessPort, qrBaseUrl }: NFCWriterProp
               {writeStatus === 'writing' ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Hold tag near phone...
+                  Поднесите метку к телефону...
                 </>
               ) : (
                 <>
                   <Nfc className="h-4 w-4 mr-2" />
-                  Write to NFC Tag
+                  Записать NFC-метку
                 </>
               )}
             </Button>
@@ -411,13 +411,13 @@ export function NFCWriter({ spools, directAccessPort, qrBaseUrl }: NFCWriterProp
                 setErrorMessage('');
               }}
             >
-              Clear
+              Очистить
             </Button>
           </div>
 
           {writeStatus === 'idle' && (
             <p className="text-xs text-muted-foreground text-center">
-              Click the button, then hold your NFC tag near your phone's NFC reader.
+              Нажмите кнопку, затем поднесите NFC-метку к считывателю телефона.
             </p>
           )}
 
@@ -432,19 +432,19 @@ export function NFCWriter({ spools, directAccessPort, qrBaseUrl }: NFCWriterProp
       {!selectedSpool && (
         <div className="flex flex-col items-center justify-center py-8 text-center text-muted-foreground">
           <Nfc className="h-12 w-12 mb-3 opacity-50" />
-          <p className="text-sm">Select a spool above to write to an NFC tag</p>
+          <p className="text-sm">Выберите катушку выше для записи NFC-метки</p>
         </div>
       )}
 
       {/* Instructions */}
       <Alert>
         <AlertTriangle className="h-4 w-4" />
-        <AlertTitle>Before You Start</AlertTitle>
+        <AlertTitle>Перед началом</AlertTitle>
         <AlertDescription className="text-xs space-y-1">
-          <p>• Use NTAG213, NTAG215, or NTAG216 NFC sticker tags</p>
-          <p>• These should not interfere with Bambu Lab AMS RFID tags (different protocol), but test first</p>
-          <p>• Place the NFC sticker on the outside of the spool where it won't rub against the AMS</p>
-          <p>• Scanning the tag will open SpoolmanSync's tray assignment page</p>
+          <p>• Используйте NFC-стикеры NTAG213, NTAG215 или NTAG216</p>
+          <p>• Они не должны мешать RFID-меткам Bambu Lab AMS (разные протоколы), но сначала протестируйте</p>
+          <p>• Поместите NFC-стикер на внешнюю сторону катушки, чтобы он не тёрся об AMS</p>
+          <p>• Сканирование метки откроет страницу назначения лотка SpoolmanSync</p>
         </AlertDescription>
       </Alert>
     </div>
