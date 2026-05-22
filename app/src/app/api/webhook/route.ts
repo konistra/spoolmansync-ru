@@ -69,8 +69,8 @@ export async function POST(request: NextRequest) {
     const spoolmanConnection = await prisma.spoolmanConnection.findFirst();
 
     if (!spoolmanConnection) {
-      console.warn('Webhook received but Spoolman not configured');
-      return NextResponse.json({ status: 'ignored', reason: 'spoolman not configured' });
+      console.warn('Webhook получен, но Spoolman не настроен');
+      return NextResponse.json({ status: 'ignored', reason: 'spoolman не настроен' });
     }
 
     const client = new SpoolmanClient(spoolmanConnection.url);
@@ -87,7 +87,7 @@ export async function POST(request: NextRequest) {
             entityIdToUniqueId = await haClient.getEntityIdToUniqueIdMap();
           }
         } catch (err) {
-          console.warn('Could not fetch entity registry for unique_id mapping:', err);
+          console.warn('Не удалось получить реестр сущностей для сопоставления unique_id:', err);
         }
         if (!entityIdToUniqueId) entityIdToUniqueId = new Map();
       }
@@ -110,15 +110,15 @@ export async function POST(request: NextRequest) {
       if ((!weightToDeduct || weightToDeduct <= 0) && used_length && used_length > 0) {
         weightToDeduct = lengthToWeight(used_length, material);
         lengthConverted = true;
-        console.log(`Converted ${used_length}cm to ${weightToDeduct.toFixed(2)}g (material: ${material || 'PLA default'})`);
+        console.log(`Конвертировано ${used_length}см в ${weightToDeduct.toFixed(2)}г (материал: ${material || 'PLA по умолчанию'})`);
       }
 
       if (!weightToDeduct || weightToDeduct <= 0) {
-        return NextResponse.json({ status: 'ignored', reason: 'no weight to deduct' });
+        return NextResponse.json({ status: 'ignored', reason: 'нечего списывать' });
       }
 
       if (!active_tray_id) {
-        return NextResponse.json({ status: 'ignored', reason: 'no active_tray_id provided' });
+        return NextResponse.json({ status: 'ignored', reason: 'не указан active_tray_id' });
       }
 
       const spools = await client.getSpools();
@@ -135,10 +135,10 @@ export async function POST(request: NextRequest) {
       }
 
       if (!matchedSpool) {
-        console.warn(`No spool assigned to tray ${active_tray_id}`);
+        console.warn(`Нет катушки, назначенной на слот ${active_tray_id}`);
         return NextResponse.json({
           status: 'no_match',
-          message: `No spool assigned to tray ${active_tray_id}. Assign a spool in SpoolmanSync first.`,
+          message: `Нет катушки, назначенной на слот ${active_tray_id}. Сначала назначьте катушку в SpoolmanSync.`,
         });
       }
 
@@ -147,7 +147,7 @@ export async function POST(request: NextRequest) {
       if (lengthConverted && matchedSpool.filament?.material) {
         const betterWeight = lengthToWeight(used_length, matchedSpool.filament.material);
         if (betterWeight !== weightToDeduct) {
-          console.log(`Refined conversion using spool material ${matchedSpool.filament.material}: ${weightToDeduct.toFixed(2)}g -> ${betterWeight.toFixed(2)}g`);
+          console.log(`Уточнённая конвертация с использованием материала катушки ${matchedSpool.filament.material}: ${weightToDeduct.toFixed(2)}г -> ${betterWeight.toFixed(2)}г`);
           weightToDeduct = betterWeight;
         }
       }
@@ -156,10 +156,10 @@ export async function POST(request: NextRequest) {
       await client.useWeight(matchedSpool.id, weightToDeduct);
 
       // Check low filament alerts (fire-and-forget)
-      checkAndUpdateAlerts().catch(err => console.error('Alert check failed:', err));
+      checkAndUpdateAlerts().catch(err => console.error('Проверка уведомлений не удалась:', err));
 
-      const deductionNote = lengthConverted ? ` (converted from ${used_length}cm)` : '';
-      console.log(`Deducted ${weightToDeduct.toFixed(2)}g${deductionNote} from spool #${matchedSpool.id} (${matchedSpool.filament.name})`);
+      const deductionNote = lengthConverted ? ` (конвертировано из ${used_length}см)` : '';
+      console.log(`Списано ${weightToDeduct.toFixed(2)}г${deductionNote} с катушки #${matchedSpool.id} (${matchedSpool.filament.name})`);
 
       // Store the spool serial/RFID if we have a valid one
       // This enables future auto-matching when the same spool is reinserted
@@ -180,13 +180,13 @@ export async function POST(request: NextRequest) {
         }
 
         if (!alreadyHasTag) {
-          console.log(`Storing spool serial "${tray_uuid}" on spool #${matchedSpool.id}`);
+          console.log(`Сохранение серийного номера катушки "${tray_uuid}" для катушки #${matchedSpool.id}`);
           await client.setSpoolTag(matchedSpool.id, tray_uuid);
           tagStored = true;
 
           await createActivityLog({
             type: 'tag_stored',
-            message: `Stored spool serial on spool #${matchedSpool.id} (${matchedSpool.filament.name})`,
+            message: `Сохранён серийный номер катушки #${matchedSpool.id} (${matchedSpool.filament.name})`,
             details: {
               spoolId: matchedSpool.id,
               trayUuid: tray_uuid,
@@ -209,7 +209,7 @@ export async function POST(request: NextRequest) {
 
       await createActivityLog({
         type: 'spool_usage',
-        message: `Deducted ${weightToDeduct.toFixed(2)}g${deductionNote} from spool #${matchedSpool.id} (${matchedSpool.filament.name})`,
+        message: `Списано ${weightToDeduct.toFixed(2)}г${deductionNote} с катушки #${matchedSpool.id} (${matchedSpool.filament.name})`,
         details: {
           spoolId: matchedSpool.id,
           usedWeight: weightToDeduct,
@@ -252,7 +252,7 @@ export async function POST(request: NextRequest) {
         }
 
         if (assignedSpool) {
-          console.log(`Tray ${tray_entity_id} is now empty, unassigning spool #${assignedSpool.id}`);
+          console.log(`Слот ${tray_entity_id} теперь пуст, снимаем катушку #${assignedSpool.id}`);
           await client.unassignSpoolFromTray(assignedSpool.id);
 
           // Emit real-time update event
@@ -267,7 +267,7 @@ export async function POST(request: NextRequest) {
 
           await createActivityLog({
             type: 'spool_unassign',
-            message: `Auto-unassigned spool #${assignedSpool.id} from ${tray_entity_id} (tray empty)`,
+            message: `Авто-снята катушка #${assignedSpool.id} со слота ${tray_entity_id} (слот пуст)`,
             details: { spoolId: assignedSpool.id, trayId: tray_entity_id, reason: 'tray_empty' },
           });
 
@@ -282,13 +282,13 @@ export async function POST(request: NextRequest) {
         // Log the empty tray detection even though no action was taken
         await createActivityLog({
           type: 'tray_empty_detected',
-          message: `Detected empty tray: ${tray_entity_id} (no spool was assigned)`,
+          message: `Обнаружен пустой слот: ${tray_entity_id} (катушка не была назначена)`,
           details: { trayId: tray_entity_id, reason: 'no_spool_assigned' },
         });
 
         return NextResponse.json({
           status: 'ignored',
-          reason: 'tray empty and no spool was assigned',
+          reason: 'слот пуст и катушка не была назначена',
         });
       }
 
@@ -312,7 +312,7 @@ export async function POST(request: NextRequest) {
 
           await createActivityLog({
             type: 'spool_change',
-            message: `Auto-assigned spool #${matchedSpool.id} to ${tray_entity_id} (matched by spool serial)`,
+            message: `Авто-назначена катушка #${matchedSpool.id} на слот ${tray_entity_id} (сопоставлена по серийному номеру)`,
             details: { spoolId: matchedSpool.id, trayId: tray_entity_id, matchedBy: 'spool_serial', trayUuid: tray_uuid },
           });
 
@@ -326,12 +326,12 @@ export async function POST(request: NextRequest) {
 
       // No auto-match - user needs to manually assign spool
       // Log what the printer detected for debugging
-      console.log(`Tray ${tray_entity_id} changed but no matching spool found. Printer reports: name="${name}", material="${material}", tray_uuid="${tray_uuid}"`);
+      console.log(`Слот ${tray_entity_id} изменился, но подходящая катушка не найдена. Принтер сообщает: name="${name}", material="${material}", tray_uuid="${tray_uuid}"`);
 
       // Log to activity log so users can see all tray changes in the webapp
       await createActivityLog({
         type: 'tray_change_detected',
-        message: `Tray change detected: ${tray_entity_id} has filament but no matching spool`,
+        message: `Обнаружена смена слота: ${tray_entity_id} содержит филамент, но подходящая катушка не найдена`,
         details: {
           trayId: tray_entity_id,
           printerReports: { name, material, tray_uuid },
@@ -349,22 +349,22 @@ export async function POST(request: NextRequest) {
 
       return NextResponse.json({
         status: 'no_match',
-        message: 'No spool assigned to this tray. Please assign a spool manually in SpoolmanSync.',
+        message: 'Катушка не назначена на этот слот. Пожалуйста, назначьте катушку вручную в SpoolmanSync.',
         printerReports: { name, material, tray_uuid },
       });
     }
 
-    return NextResponse.json({ status: 'ignored', reason: 'unknown event type' });
+    return NextResponse.json({ status: 'ignored', reason: 'неизвестный тип события' });
   } catch (error) {
-    console.error('Webhook error:', error);
+    console.error('Ошибка webhook:', error);
 
     await createActivityLog({
       type: 'error',
-      message: 'Webhook processing failed',
+      message: 'Обработка webhook не удалась',
       details: { error: error instanceof Error ? error.message : String(error) },
     });
 
-    return NextResponse.json({ error: 'Webhook processing failed' }, { status: 500 });
+    return NextResponse.json({ error: 'Обработка webhook не удалась' }, { status: 500 });
   }
 }
 
@@ -375,7 +375,7 @@ export async function GET() {
     message: 'SpoolmanSync webhook endpoint',
     events: {
       spool_usage: {
-        description: 'Deduct filament weight from spool after print',
+        description: 'Списать вес филамента с катушки после печати',
         payload: {
           event: 'spool_usage',
           name: 'Filament Name',
@@ -387,7 +387,7 @@ export async function GET() {
         },
       },
       tray_change: {
-        description: 'Auto-assign spool by tray_uuid (Bambu spools only)',
+        description: 'Авто-назначение катушки по tray_uuid (только для катушек Bambu)',
         payload: {
           event: 'tray_change',
           tray_entity_id: 'sensor.x1c_..._tray_1',

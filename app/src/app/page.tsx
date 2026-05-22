@@ -69,7 +69,7 @@ export default function Dashboard() {
             const printerPrefix = printers.length > 1 ? `${printer.name} > ` : '';
             const amsPrefix = printer.ams_units.length > 1 ? `${ams.name} > ` : '';
             trays.push({
-              label: `${printerPrefix}${amsPrefix}Лоток ${tray.tray_number}`,
+              label: `${printerPrefix}${amsPrefix}Слот ${tray.tray_number}`,
               name: tray.name,
               material: tray.material,
               color: tray.color,

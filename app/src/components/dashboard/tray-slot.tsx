@@ -122,7 +122,7 @@ export function TraySlot({ tray, assignedSpool, spools, onAssign, onUnassign, mi
             setEnabledFields(enabled);
           }
         })
-        .catch((err) => console.error('Failed to fetch filter fields:', err));
+        .catch((err) => console.error('Не удалось загрузить поля фильтров:', err));
     }
   }, [open]);
 
@@ -174,7 +174,7 @@ export function TraySlot({ tray, assignedSpool, spools, onAssign, onUnassign, mi
     }
   };
 
-  const trayLabel = tray.is_external ? 'External' : `Tray ${tray.tray_number}`;
+  const trayLabel = tray.is_external ? 'Внешний' : `Слот ${tray.tray_number}`;
 
   // Check if any enabled filters have values to show
   const hasFilterOptions = enabledFields.some(f => f.values.length > 0);
@@ -194,7 +194,7 @@ export function TraySlot({ tray, assignedSpool, spools, onAssign, onUnassign, mi
               <span
                 onClick={handleUnassign}
                 className="h-5 w-5 flex items-center justify-center rounded-full text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer text-xs"
-                title="Unassign spool"
+                title="Снять катушку"
               >
                 ✕
               </span>
@@ -205,11 +205,11 @@ export function TraySlot({ tray, assignedSpool, spools, onAssign, onUnassign, mi
           {mismatch && assignedSpool && (
             <div
               className="flex items-center gap-1.5 px-2 py-1 mb-2 rounded bg-amber-100 dark:bg-amber-900/30 border border-amber-300 dark:border-amber-700"
-              title={`RFID: ${mismatch.printerReports.color} (${mismatch.printerReports.material}) | Assigned: ${mismatch.spoolmanHas.color} (${mismatch.spoolmanHas.material})`}
+              title={`RFID: ${mismatch.printerReports.color} (${mismatch.printerReports.material}) | Назначено: ${mismatch.spoolmanHas.color} (${mismatch.spoolmanHas.material})`}
             >
               <span className="text-amber-600 dark:text-amber-400 text-xs">⚠️</span>
               <span className="text-[10px] font-medium text-amber-700 dark:text-amber-300 truncate">
-                Possible wrong spool
+                Возможно, неверная катушка
               </span>
             </div>
           )}
@@ -232,7 +232,7 @@ export function TraySlot({ tray, assignedSpool, spools, onAssign, onUnassign, mi
                 </div>
                 <div className="flex items-baseline gap-1">
                   <span className="text-[9px] font-medium text-muted-foreground uppercase">Производитель:</span>
-                  <span className="text-xs font-medium truncate">{assignedSpool.filament.vendor?.name || 'Unknown'}</span>
+                  <span className="text-xs font-medium truncate">{assignedSpool.filament.vendor?.name || 'Неизвестно'}</span>
                 </div>
                 {showLocation && assignedSpool.location && (
                   <div className="flex items-baseline gap-1">
@@ -273,7 +273,7 @@ export function TraySlot({ tray, assignedSpool, spools, onAssign, onUnassign, mi
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>
-            Назначить катушку на {tray.is_external ? 'Внешний слот' : `Tray ${tray.tray_number}`}
+            Назначить катушку на {tray.is_external ? 'Внешний слот' : `Слот ${tray.tray_number}`}
           </DialogTitle>
           <DialogDescription>
             Найдите и выберите катушку из вашего инвентаря Spoolman.
@@ -292,7 +292,7 @@ export function TraySlot({ tray, assignedSpool, spools, onAssign, onUnassign, mi
                 <div className="text-xs text-amber-600 dark:text-amber-400 space-y-0.5">
                   <p>
                     <span className="opacity-70">RFID сообщает:</span>{' '}
-                    {mismatch.printerReports.material || 'unknown material'}
+                    {mismatch.printerReports.material || 'неизвестный материал'}
                     {mismatch.printerReports.color && (
                       <span className="inline-flex items-center gap-1 ml-1">
                         <span
@@ -337,10 +337,10 @@ export function TraySlot({ tray, assignedSpool, spools, onAssign, onUnassign, mi
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="id">Сортировать: ID</SelectItem>
-                    <SelectItem value="name">Сортировать: Название</SelectItem>
-                    <SelectItem value="material">Сортировать: Материал</SelectItem>
-                    <SelectItem value="vendor">Сортировать: Производитель</SelectItem>
+                    <SelectItem value="id">По ID</SelectItem>
+                    <SelectItem value="name">По названию</SelectItem>
+                    <SelectItem value="material">По материалу</SelectItem>
+                    <SelectItem value="vendor">По производителю</SelectItem>
                   </SelectContent>
                 </Select>
               }
@@ -352,10 +352,10 @@ export function TraySlot({ tray, assignedSpool, spools, onAssign, onUnassign, mi
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="id">Сортировать: ID</SelectItem>
-                  <SelectItem value="name">Сортировать: Название</SelectItem>
-                  <SelectItem value="material">Сортировать: Материал</SelectItem>
-                  <SelectItem value="vendor">Сортировать: Производитель</SelectItem>
+                  <SelectItem value="id">По ID</SelectItem>
+                  <SelectItem value="name">По названию</SelectItem>
+                  <SelectItem value="material">По материалу</SelectItem>
+                  <SelectItem value="vendor">По производителю</SelectItem>
                 </SelectContent>
               </Select>
             </div>
