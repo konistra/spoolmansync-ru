@@ -274,10 +274,10 @@ export function QRCodeGenerator({ spools, directAccessPort, qrBaseUrl }: QRCodeG
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="id">Sort: ID</SelectItem>
-                <SelectItem value="name">Sort: Name</SelectItem>
-                <SelectItem value="material">Sort: Material</SelectItem>
-                <SelectItem value="vendor">Sort: Vendor</SelectItem>
+<SelectItem value="id">По ID</SelectItem>
+<SelectItem value="name">По названию</SelectItem>
+<SelectItem value="material">По материалу</SelectItem>
+<SelectItem value="vendor">По производителю</SelectItem>
               </SelectContent>
             </Select>
           }
@@ -289,56 +289,60 @@ export function QRCodeGenerator({ spools, directAccessPort, qrBaseUrl }: QRCodeG
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="id">Sort: ID</SelectItem>
-              <SelectItem value="name">Sort: Name</SelectItem>
-              <SelectItem value="material">Sort: Material</SelectItem>
-              <SelectItem value="vendor">Sort: Vendor</SelectItem>
+<SelectItem value="id">По ID</SelectItem>
+<SelectItem value="name">По названию</SelectItem>
+<SelectItem value="material">По материалу</SelectItem>
+<SelectItem value="vendor">По производителю</SelectItem>
             </SelectContent>
           </Select>
         </div>
       )}
 
-      {/* Spool Selector */}
-      <div className="space-y-2">
-        {/* Selection toolbar */}
-        <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
-          <div className="flex items-center gap-2">
+{/* Spool Selector */}
+<div className="space-y-2">
+  {/* Selection toolbar */}
+  <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+    <div className="flex items-center gap-2">
+      <span className="text-xs text-muted-foreground whitespace-nowrap">
+        {selectedIds.size} выбрано
+      </span>
+      {printedSpools.size > 0 && (
+        <>
+          <label className="flex items-center gap-1.5 cursor-pointer">
+            <Checkbox
+              checked={hidePrinted}
+              onCheckedChange={(checked) => setHidePrinted(checked === true)}
+              className="h-3.5 w-3.5"
+            />
             <span className="text-xs text-muted-foreground whitespace-nowrap">
-              {selectedIds.size} selected
+              Скрыть напечатанные ({printedSpools.size})
             </span>
-            {printedSpools.size > 0 && (
-              <>
-                <label className="flex items-center gap-1.5 cursor-pointer">
-                  <Checkbox
-                    checked={hidePrinted}
-                    onCheckedChange={(checked) => setHidePrinted(checked === true)}
-                    className="h-3.5 w-3.5"
-                  />
-                  <span className="text-xs text-muted-foreground whitespace-nowrap">
-                    Hide printed ({printedSpools.size})
-                  </span>
-                </label>
-                <button
-                  onClick={() => setConfirmClearOpen(true)}
-                  className="text-xs text-muted-foreground hover:text-muted-foreground/80 underline-offset-2 hover:underline whitespace-nowrap"
-                  title="Clear the list of spools you've already printed QR labels for"
-                >
-                  Clear history
-                </button>
+          </label>
+          <button
+            onClick={() => setConfirmClearOpen(true)}
+            className="text-xs text-muted-foreground hover:text-muted-foreground/80 underline-offset-2 hover:underline whitespace-nowrap"
+            title="Очистить список катушек, для которых вы уже напечатали QR-метки"
+          >
+            Очистить историю
+          </button>
+        </>
+      )}
+    </div>
+  </div>
+</div>
               </>
             )}
           </div>
-          <div className="flex gap-1">
-            <Button variant="ghost" size="sm" className="h-7 text-xs px-2" onClick={selectAllVisible}>
-              Select All
-            </Button>
-            {selectedIds.size > 0 && (
-              <Button variant="ghost" size="sm" className="h-7 text-xs px-2" onClick={deselectAll}>
-                Deselect All
-              </Button>
-            )}
-          </div>
-        </div>
+<div className="flex gap-1">
+  <Button variant="ghost" size="sm" className="h-7 text-xs px-2" onClick={selectAllVisible}>
+    Выбрать все
+  </Button>
+  {selectedIds.size > 0 && (
+    <Button variant="ghost" size="sm" className="h-7 text-xs px-2" onClick={deselectAll}>
+      Снять все
+    </Button>
+  )}
+</div>
 
         <Command className="rounded-lg border relative">
           <div className="relative">
@@ -406,27 +410,33 @@ export function QRCodeGenerator({ spools, directAccessPort, qrBaseUrl }: QRCodeG
         />
       </div>
 
-      {/* Preview */}
-      {selectedIds.size > 0 ? (
-        <>
-          <LabelSheetPreview pages={pages} config={config} />
+{/* Preview */}
+{selectedIds.size > 0 ? (
+  <>
+    <LabelSheetPreview pages={pages} config={config} />
 
-          {/* Footer */}
-          <div className="space-y-2 no-print">
-            <div className="flex items-center gap-3">
-              <Button onClick={handlePrint} className="flex-1">
-                <Printer className="h-4 w-4 mr-2" />
-                Print Labels
-              </Button>
-            </div>
-            <div className="text-xs text-muted-foreground space-y-1">
-              <div className="flex items-center justify-between">
-                <span>{totalLabels} label{totalLabels !== 1 ? 's' : ''} on {totalPages} page{totalPages !== 1 ? 's' : ''}</span>
-              </div>
-              <p>Tip: In the browser print dialog, set margins to &quot;None&quot; and disable headers/footers for best results.</p>
-            </div>
-          </div>
-        </>
+    {/* Footer */}
+    <div className="space-y-2 no-print">
+      <div className="flex items-center gap-3">
+        <Button onClick={handlePrint} className="flex-1">
+          <Printer className="h-4 w-4 mr-2" />
+          Печать этикеток
+        </Button>
+      </div>
+      <div className="text-xs text-muted-foreground space-y-1">
+        <div className="flex items-center justify-between">
+          <span>{totalLabels} этикетк{totalLabels !== 1 ? (totalLabels < 5 ? 'и' : 'ок') : 'а'} на {totalPages} страниц{totalPages !== 1 ? 'ах' : 'е'}</span>
+        </div>
+        <p>Совет: В диалоге печати браузера установите поля &quot;Нет&quot; и отключите верхние/нижние колонтитулы для лучшего результата.</p>
+      </div>
+    </div>
+  </>
+) : (
+  <div className="flex flex-col items-center justify-center py-8 text-center text-muted-foreground">
+    <QrCode className="h-12 w-12 mb-3 opacity-50" />
+    <p className="text-sm">Выберите катушки выше для предпросмотра этикеток</p>
+  </div>
+)}
       ) : (
         <div className="flex flex-col items-center justify-center py-8 text-center text-muted-foreground">
           <QrCode className="h-12 w-12 mb-3 opacity-50" />
@@ -434,33 +444,33 @@ export function QRCodeGenerator({ spools, directAccessPort, qrBaseUrl }: QRCodeG
         </div>
       )}
 
-      {/* Confirmation dialog for clearing printed history */}
-      <Dialog open={confirmClearOpen} onOpenChange={setConfirmClearOpen}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Clear QR label print history?</DialogTitle>
-            <DialogDescription>
-              This will forget which {printedSpools.size} spool{printedSpools.size !== 1 ? 's' : ''} you&apos;ve
-              previously printed QR labels for. All spools will show as unprinted.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter className="gap-2 sm:gap-0">
-            <Button variant="ghost" onClick={() => setConfirmClearOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={() => {
-                clearPrintedHistory();
-                setHidePrinted(false);
-                setConfirmClearOpen(false);
-              }}
-            >
-              Clear history
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
+{/* Confirmation dialog for clearing printed history */}
+<Dialog open={confirmClearOpen} onOpenChange={setConfirmClearOpen}>
+  <DialogContent className="max-w-sm">
+    <DialogHeader>
+      <DialogTitle>Очистить историю печати QR-меток?</DialogTitle>
+      <DialogDescription>
+        Это удалит информацию о {printedSpools.size} напечатанн{printedSpools.size !== 1 ? 'ых катушках' : 'ой катушке'},
+        для которых вы ранее печатали QR-метки. Все катушки будут отображаться как ненапечатанные.
+      </DialogDescription>
+    </DialogHeader>
+    <DialogFooter className="gap-2 sm:gap-0">
+      <Button variant="ghost" onClick={() => setConfirmClearOpen(false)}>
+        Отмена
+      </Button>
+      <Button
+        variant="destructive"
+        onClick={() => {
+          clearPrintedHistory();
+          setHidePrinted(false);
+          setConfirmClearOpen(false);
+        }}
+      >
+        Очистить историю
+      </Button>
+    </DialogFooter>
+  </DialogContent>
+</Dialog>
+</div>
   );
 }
