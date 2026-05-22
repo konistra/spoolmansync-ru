@@ -69,7 +69,7 @@ export function SpoolFilterBar({
                 <SelectValue placeholder={field.name} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={ALL_VALUE}>All {field.name}</SelectItem>
+                <SelectItem value={ALL_VALUE}>Все {field.name}</SelectItem>
                 {field.values.map((v) => (
                   <SelectItem key={v} value={v}>
                     {v}
@@ -87,7 +87,7 @@ export function SpoolFilterBar({
               onClick={onClearAll}
               className="h-8 text-xs text-muted-foreground hover:text-foreground"
             >
-              Clear all
+              Очистить всё
             </Button>
           )}
         </div>
@@ -98,7 +98,7 @@ export function SpoolFilterBar({
       {/* Active filter badges */}
       {activeBadges.length > 0 && (
         <div className="flex flex-wrap items-center gap-1">
-          <span className="text-xs text-muted-foreground mr-1">Active:</span>
+          <span className="text-xs text-muted-foreground mr-1">Активные:</span>
           {activeBadges.map((badge) => (
             <Badge
               key={badge.key}

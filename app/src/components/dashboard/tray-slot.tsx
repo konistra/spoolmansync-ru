@@ -174,7 +174,7 @@ export function TraySlot({ tray, assignedSpool, spools, onAssign, onUnassign, mi
     }
   };
 
-  const trayLabel = tray.is_external ? 'Внешний' : `Слот ${tray.tray_number}`;
+  const trayLabel = tray.is_external ? 'Внешнее крепление' : `Слот ${tray.tray_number}`;
 
   // Check if any enabled filters have values to show
   const hasFilterOptions = enabledFields.some(f => f.values.length > 0);
