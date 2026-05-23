@@ -365,7 +365,7 @@ export default function Dashboard() {
                 <AlertTitle>Автоматизации устарели</AlertTitle>
                 <AlertDescription>
                   Идентификаторы сущностей в Home Assistant изменились с момента последней настройки автоматизаций.
-                  Отслеживание смены лотков и расхода filament может не работать, пока вы не перенастроите их.{' '}
+                  Отслеживание смены лотков и расхода филамента может не работать, пока вы не перенастроите их.{' '}
                   <Link href="/automations" className="underline hover:no-underline font-medium">
                     Перенастроить автоматизации
                   </Link>
@@ -396,7 +396,7 @@ export default function Dashboard() {
                       const details = [tray.material, tray.name].filter(Boolean).join(' - ');
                       return (
                         <div key={i}>
-                          <strong>{tray.label}</strong> — есть filament, но катушка не назначена.
+                          <strong>{tray.label}</strong> — есть филамент, но катушка не назначена.
                           {details && (
                             <span>
                               {' '}AMS сообщает: {details}
@@ -413,7 +413,7 @@ export default function Dashboard() {
                     })}
                     <div className="mt-1">
                       Нажмите на карточку лотка ниже, чтобы выбрать, какая катушка из Spoolman загружена.
-                      Это обеспечит точный учёт filament при завершении печати.
+                      Это обеспечит точный учёт филамент при завершении печати.
                     </div>
                   </div>
                 </AlertDescription>
@@ -436,7 +436,7 @@ export default function Dashboard() {
                     d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-2.694-.833-3.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z"
                   />
                 </svg>
-                <AlertTitle>Низкий запас filament</AlertTitle>
+                <AlertTitle>Низкий запас филамента</AlertTitle>
                 <AlertDescription>
                   <div className="space-y-1">
                     {lowFilamentAlerts.map((alert) => (
